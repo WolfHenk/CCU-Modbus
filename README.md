@@ -6,11 +6,11 @@ CCU/OpenCCU-Add-on für ein einfaches, robustes Modbus-Interface.
 
 Aktuelle Testversion:
 
-**[ccu-modbus-0.1.0-test10.tar.gz](releases/ccu-modbus-0.1.0-test10.tar.gz)**
+**[ccu-modbus-0.1.1.tar.gz](releases/ccu-modbus-0.1.1.tar.gz)**
 
 Die installierbare TAR.GZ-Datei wird nach einem erfolgreichen Build auf `main` direkt im Repository unter `releases/` abgelegt.
 
-## Stand 0.1.0-test10
+## Stand 0.1.1
 
 Korrektur gegenüber test4:
 - URL-Decodierung für CCU-Session-IDs im CGI ergänzt
