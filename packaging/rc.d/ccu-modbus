@@ -27,6 +27,36 @@ ensure_interface() {
   rm -f "$TMP"
 }
 
+remove_interface() {
+  [ -f "$INTERFACES" ] || return 0
+  grep -q "<name>CCU-Modbus</name>" "$INTERFACES" || return 0
+
+  TMP="$INTERFACES.ccu-modbus.$"
+  awk '
+    BEGIN { skip=0; block="" }
+    /<ipc>/ {
+      block=$0 ORS
+      inblock=1
+      next
+    }
+    inblock {
+      block=block $0 ORS
+      if ($0 ~ /<name>CCU-Modbus<\/name>/) skip=1
+      if ($0 ~ /<\/ipc>/) {
+        if (!skip) printf "%s", block
+        block=""
+        inblock=0
+        skip=0
+      }
+      next
+    }
+    { print }
+  ' "$INTERFACES" > "$TMP" || return 1
+
+  cat "$TMP" > "$INTERFACES"
+  rm -f "$TMP"
+}
+
 is_running() {
   [ -f "$PID" ] || return 1
   P="$(cat "$PID" 2>/dev/null)"
@@ -111,7 +141,7 @@ case "$1" in
     echo "Name: CCU-Modbus"
     echo "Version: $VER"
     echo "Info: <div style='text-align:center'>"
-    echo "Info: <img src='https://images.seeklogo.com/logo-png/35/1/modbus-logo-png_seeklogo-355093.png' style='max-width:235px;max-height:70px;margin:2px 0 5px 0' alt='Modbus'><br>"
+    echo "Info: <img src='/addons/ccu-modbus/img/modbus-logo.svg' style='max-width:235px;max-height:70px;margin:2px 0 5px 0' alt='Modbus'><br>"
     echo "Info: <b>CCU-Modbus $VER</b><br>"
     echo "Info: Modbus TCP Interface fuer CCU/OpenCCU<br><br>"
     echo "Info: <a href='https://github.com/WolfHenk/CCU-Modbus' target='_blank'>https://github.com/WolfHenk/CCU-Modbus</a>"
@@ -121,7 +151,12 @@ case "$1" in
     echo "Update: /addons/ccu-modbus/update-check.cgi"
     ;;
   uninstall)
+    # stop_daemon lets ccu-modbusd unregister all of its virtual devices first.
     stop_daemon
+    if [ -x "$BASE/bin/register_devtype" ]; then
+      "$BASE/bin/register_devtype" remove >/dev/null 2>&1 || true
+    fi
+    remove_interface || true
     if [ -x "$BASE/bin/update_addon" ]; then
       "$BASE/bin/update_addon" delete ccu-modbus || true
     fi
