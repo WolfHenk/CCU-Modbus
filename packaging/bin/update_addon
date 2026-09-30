@@ -1,0 +1,47 @@
+#!/bin/tclsh
+# Minimaler hm_addons.cfg-Helfer fuer Teststand 1.
+# Aufruf:
+#   update_addon id config-url name desc-en desc-de
+#   update_addon delete id
+
+set cfg "/usr/local/etc/config/hm_addons.cfg"
+
+proc read_cfg {path} {
+  if {[file exists $path]} {
+    set f [open $path r]
+    set s [read $f]
+    close $f
+    return $s
+  }
+  return ""
+}
+
+proc write_cfg {path data} {
+  set f [open $path w]
+  puts -nonewline $f $data
+  close $f
+}
+
+if {$argc < 2} {
+  exit 1
+}
+
+set mode [lindex $argv 0]
+if {$mode == "delete"} {
+  set id [lindex $argv 1]
+  set data [read_cfg $cfg]
+  set lines [split $data "\n"]
+  set out {}
+  foreach line $lines {
+    if {[string first "id=$id" $line] < 0} {
+      lappend out $line
+    }
+  }
+  write_cfg $cfg [join $out "\n"]
+  exit 0
+}
+
+# Die alte CCU-hm_addons.cfg-Struktur wird im ersten Teststand
+# bewusst nur minimal bedient. Der rc.d Config-Url-Eintrag stellt
+# den Einstellen-Knopf in der Zusatzsoftwareliste bereit.
+exit 0

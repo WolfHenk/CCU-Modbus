@@ -1,0 +1,62 @@
+#!/bin/sh
+
+ADDON=ccu-modbus
+BASE=/usr/local/addons/$ADDON
+BIN=$BASE/bin/ccu-modbusd
+CONF=/usr/local/etc/config/addons/$ADDON/config.json
+PID=/var/run/$ADDON.pid
+
+start_daemon() {
+  [ -x "$BIN" ] || return 1
+  [ -f "$CONF" ] || return 1
+
+  if [ -f "$PID" ] && kill -0 "$(cat "$PID" 2>/dev/null)" 2>/dev/null; then
+    return 0
+  fi
+
+  ( "$BIN" -config "$CONF" 2>&1 | logger -t ccu-modbus ) &
+  echo $! > "$PID"
+}
+
+stop_daemon() {
+  if [ -f "$PID" ]; then
+    P="$(cat "$PID" 2>/dev/null)"
+    [ -n "$P" ] && kill "$P" 2>/dev/null
+    rm -f "$PID"
+  fi
+}
+
+case "$1" in
+  init)
+    ;;
+  start|"")
+    start_daemon
+    ;;
+  stop)
+    stop_daemon
+    ;;
+  restart)
+    stop_daemon
+    sleep 1
+    start_daemon
+    ;;
+  info)
+    echo "Name: CCU-Modbus"
+    echo "Version: $(cat "$BASE/VERSION" 2>/dev/null)"
+    echo "Info: Modbus TCP Interface fuer CCU/OpenCCU"
+    echo "Config-Url: /addons/ccu-modbus/index.cgi"
+    echo "Operations: restart uninstall"
+    ;;
+  uninstall)
+    stop_daemon
+    if [ -x "$BASE/bin/update_addon" ]; then
+      "$BASE/bin/update_addon" delete ccu-modbus || true
+    fi
+    rm -rf /usr/local/etc/config/addons/www/$ADDON
+    rm -rf /usr/local/etc/config/addons/$ADDON
+    rm -f /usr/local/etc/config/rc.d/$ADDON
+    rm -rf "$BASE"
+    ;;
+esac
+
+exit 0

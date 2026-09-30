@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "listen": "127.0.0.1:18701",
+  "devices": [
+    {
+      "id": "test01",
+      "name": "Modbus-Testgeraet",
+      "enabled": false,
+      "host": "192.168.1.50",
+      "port": 502,
+      "unit_id": 1,
+      "timeout_ms": 1500,
+      "retries": 1,
+      "registers": [
+        {
+          "id": "temperature",
+          "name": "Temperatur",
+          "enabled": true,
+          "type": "holding",
+          "address": 100,
+          "datatype": "int16",
+          "factor": 0.1,
+          "offset": 0,
+          "byte_swap": false,
+          "word_swap": false,
+          "poll_seconds": 10,
+          "unit": "°C"
+        }
+      ]
+    }
+  ]
+}
