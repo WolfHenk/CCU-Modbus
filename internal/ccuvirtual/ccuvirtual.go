@@ -26,10 +26,13 @@ type switchKey struct {
 }
 
 type Integration struct {
-	handler  *vdevices.Handler
-	devices  *vdevices.Container
+	handler *vdevices.Handler
+	devices *vdevices.Container
+
 	switches map[switchKey]*vdevices.DigitalChannel
-	cancel   context.CancelFunc
+	inputs   map[switchKey]*vdevices.DigitalChannel
+
+	cancel context.CancelFunc
 }
 
 func Attach(parent context.Context, mux *http.ServeMux, cfg *config.Config, eng *engine.Engine) *Integration {
@@ -46,6 +49,7 @@ func Attach(parent context.Context, mux *http.ServeMux, cfg *config.Config, eng 
 		handler:  h,
 		devices:  vd,
 		switches: make(map[switchKey]*vdevices.DigitalChannel),
+		inputs:   make(map[switchKey]*vdevices.DigitalChannel),
 		cancel:   cancel,
 	}
 
@@ -82,15 +86,29 @@ func (i *Integration) addDevice(d config.Device, eng *engine.Engine) {
 	vdevices.NewMaintenanceChannel(dev)
 
 	for _, r := range d.Registers {
-		if !r.Enabled || r.Type != "coil" || strings.ToLower(r.DataType) != "bool" {
+		if !r.Enabled || strings.ToLower(r.DataType) != "bool" {
 			continue
 		}
+
 		reg := r
-		ch := vdevices.NewSwitchChannel(dev)
-		ch.OnSetState = func(value bool) bool {
-			return eng.EnqueueCoil(d.ID, reg.ID, value)
+		key := switchKey{deviceID: d.ID, registerID: reg.ID}
+
+		switch r.Type {
+		case "coil":
+			ch := vdevices.NewSwitchChannel(dev)
+			ch.OnSetState = func(value bool) bool {
+				return eng.EnqueueCoil(d.ID, reg.ID, value)
+			}
+			i.switches[key] = ch
+
+		case "discrete":
+			// Standard CCU contact channel, but explicitly read-only.
+			ch := vdevices.NewDoorSensorChannel(dev)
+			if p, err := ch.ValueParamset().Parameter("STATE"); err == nil {
+				p.Description().Operations = itf.ParameterOperationRead | itf.ParameterOperationEvent
+			}
+			i.inputs[key] = ch
 		}
-		i.switches[switchKey{deviceID: d.ID, registerID: reg.ID}] = ch
 	}
 
 	_ = i.devices.AddDevice(dev)
@@ -112,16 +130,25 @@ func (i *Integration) syncLoop(ctx context.Context, eng *engine.Engine) {
 func (i *Integration) syncStates(states []model.DeviceState) {
 	for _, ds := range states {
 		for _, rs := range ds.Registers {
-			ch := i.switches[switchKey{deviceID: ds.ID, registerID: rs.ID}]
-			if ch == nil || rs.Value.Quality != model.QualityGood {
+			if rs.Value.Quality != model.QualityGood {
 				continue
 			}
 			v, ok := rs.Value.Value.(bool)
 			if !ok {
 				continue
 			}
-			if ch.State() != v {
-				ch.SetState(v)
+
+			key := switchKey{deviceID: ds.ID, registerID: rs.ID}
+			if ch := i.switches[key]; ch != nil {
+				if ch.State() != v {
+					ch.SetState(v)
+				}
+				continue
+			}
+			if ch := i.inputs[key]; ch != nil {
+				if ch.State() != v {
+					ch.SetState(v)
+				}
 			}
 		}
 	}
