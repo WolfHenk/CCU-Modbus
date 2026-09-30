@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 var sid=window.CCU_MODBUS_SID||'';
-var cfg=null, states=[], dirty=false, editDevice=-1, editRegister=-1;
+var cfg=null, states=[], dirty=false, editDevice=-1, editRegister=-1, expanded={};
 var $=function(id){return document.getElementById(id);};
 
 function api(action,method,body){
@@ -34,21 +34,41 @@ function render(){
       '<div class="actions"><button data-values="'+idx+'">Werte anzeigen</button><button data-edit="'+idx+'">Bearbeiten</button></div>'+
       '<div class="values hidden" id="values-'+idx+'"></div>';
     root.appendChild(c);
+    if(expanded[d.id]){
+      var box=$('values-'+idx);
+      if(box){
+        box.classList.remove('hidden');
+        renderValues(idx, box);
+      }
+    }
   });
   root.querySelectorAll('[data-edit]').forEach(function(b){b.onclick=function(){openDevice(Number(this.getAttribute('data-edit')));};});
   root.querySelectorAll('[data-values]').forEach(function(b){b.onclick=function(){toggleValues(Number(this.getAttribute('data-values')));};});
 }
-function toggleValues(idx){
-  var box=$('values-'+idx), d=cfg.devices[idx], s=stateFor(d.id);box.classList.toggle('hidden');
-  if(box.classList.contains('hidden'))return;
-  var html='';
+function renderValues(idx, box){
+  var d=cfg.devices[idx], s=stateFor(d.id), html='';
   d.registers.forEach(function(r){
-    var rs=null;if(s&&s.registers){for(var i=0;i<s.registers.length;i++)if(s.registers[i].id===r.id){rs=s.registers[i];break;}}
+    var rs=null;
+    if(s&&s.registers){
+      for(var i=0;i<s.registers.length;i++){
+        if(s.registers[i].id===r.id){rs=s.registers[i];break;}
+      }
+    }
     var v='—',q='Noch kein Wert';
-    if(rs&&rs.value){q=rs.value.quality;if(rs.value.value!==undefined)v=rs.value.value+(r.unit?' '+esc(r.unit):'');if(rs.value.error)q=rs.value.error;}
+    if(rs&&rs.value){
+      q=rs.value.quality;
+      if(rs.value.value!==undefined)v=rs.value.value+(r.unit?' '+esc(r.unit):'');
+      if(rs.value.error)q=rs.value.error;
+    }
     html+='<div class="valueRow"><span>'+esc(r.name)+'</span><strong>'+v+'</strong><span class="quality">'+esc(q)+'</span></div>';
   });
   box.innerHTML=html||'<span class="muted">Keine Register vorhanden.</span>';
+}
+function toggleValues(idx){
+  var box=$('values-'+idx), d=cfg.devices[idx];
+  box.classList.toggle('hidden');
+  expanded[d.id]=!box.classList.contains('hidden');
+  if(expanded[d.id])renderValues(idx, box);
 }
 
 function blankDevice(){return {id:'dev-'+Date.now(),name:'',enabled:true,host:'',port:502,unit_id:1,timeout_ms:1500,retries:1,registers:[]};}
