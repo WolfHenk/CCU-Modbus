@@ -38,6 +38,8 @@ cp -f "$SRC" "$BASE/bin/ccu-modbusd"
 chmod 755 "$BASE/bin/ccu-modbusd"
 cp -f bin/update_addon "$BASE/bin/update_addon"
 chmod 755 "$BASE/bin/update_addon"
+cp -f bin/register_devtype "$BASE/bin/register_devtype"
+chmod 755 "$BASE/bin/register_devtype"
 cp -f VERSION "$BASE/VERSION"
 
 cp -f rc.d/ccu-modbus "$RCD/ccu-modbus"
@@ -49,6 +51,8 @@ chmod 755 "$BASE/www/"*.cgi 2>/dev/null || true
 
 rmdir "$WEBLINK" 2>/dev/null || true
 ln -sfn "$BASE/www" "$WEBLINK"
+
+"$BASE/bin/register_devtype" install >/dev/null 2>&1 || true
 
 if [ ! -f "$CONF/config.json" ]; then
   cp -f examples/config.json "$CONF/config.json"
