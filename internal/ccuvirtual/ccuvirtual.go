@@ -61,6 +61,12 @@ func Attach(parent context.Context, mux *http.ServeMux, cfg *config.Config, eng 
 		in.addDevice(d, eng)
 	}
 
+	// Re-establish the ReGa logic-layer callback after every daemon start.
+	// ReGa normally calls init only when it starts itself, so an add-on daemon
+	// restart would otherwise lose the servant and later structure changes
+	// (new/deleted channels) would never reach ReGa.
+	_ = h.Init("xmlrpc_bin://127.0.0.1:31999", InterfaceID)
+
 	go in.syncLoop(ctx, eng)
 	return in
 }
