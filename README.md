@@ -50,3 +50,8 @@ CCU-Modbus nutzt die normale CCU/OpenCCU-Zusatzsoftware-Mechanik:
 - individuelle Pollingintervalle pro Register
 - Fehler einzelner Register bleiben lokal
 - lokaler Cache und Status-API
+
+
+## Logo
+
+Für die Darstellung wird das vom Projekt gewünschte Modbus-Logo verwendet: https://seeklogo.com/vector-logo/355093/modbus
