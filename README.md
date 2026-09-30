@@ -6,7 +6,7 @@ Die Konfiguration erfolgt vollständig über die WebUI der CCU. Es ist keine Clo
 
 ## Installation
 
-1. Die aktuelle Datei `ccu-modbus-0.1.1.tar.gz` aus dem Verzeichnis `releases/` herunterladen.
+1. Die aktuelle Datei `ccu-modbus-0.1.2.tar.gz` aus dem Verzeichnis `releases/` herunterladen.
 2. In der CCU unter **Einstellungen → Systemsteuerung → Zusatzsoftware** die TAR.GZ-Datei auswählen und installieren.
 3. Bei der ersten Installation ist ein Neustart der CCU erforderlich, damit die XML-RPC-Schnittstelle von ReGaHss übernommen wird.
 4. Anschließend unter **Einstellungen → Systemsteuerung → Zusatzsoftware → CCU-Modbus → Einstellen** die Konfiguration öffnen.
@@ -53,6 +53,8 @@ Für jeden Datenpunkt werden festgelegt:
 - **Offset**
 - **Pollingintervall**
 - **Register aktiv** – legt fest, ob der Datenpunkt verwendet und abgefragt wird
+- **Raum** – optionaler, bereits in der CCU vorhandener Raum
+- **Gewerk** – optionales, bereits in der CCU vorhandenes Gewerk
 
 Bei **Discrete Input** kann zusätzlich festgelegt werden, welche Bedeutung der Modbus-Wert TRUE hat:
 
@@ -87,7 +89,7 @@ Eingang 3   Adresse 2
 Eingang 16  Adresse 15
 ```
 
-Alle übrigen Einstellungen werden übernommen.
+Alle übrigen Einstellungen werden übernommen, einschließlich Raum und Gewerk. Anschließend kann jeder erzeugte Kanal einzeln angepasst werden.
 
 Bei 32-Bit-Datentypen wird die Modbus-Adresse automatisch in Zweierschritten weitergezählt.
 
@@ -114,6 +116,8 @@ Das virtuelle Gerät besitzt:
 - Kanal 0 als Wartungs-/Statuskanal
 - BOOL-Coils als schaltbare CCU-Kanäle
 - BOOL-Discrete-Inputs als nur lesbare CCU-Kanäle
+- frei vergebene Kanalnamen aus der Modbus-Konfiguration
+- optionale Raum- und Gewerkzuordnungen, die in die vorhandenen CCU-Räume und -Gewerke gespiegelt werden
 
 Schaltbefehle der CCU werden nicht synchron direkt auf Modbus ausgeführt. Sie werden an den jeweiligen Geräte-Worker übergeben. Dadurch wartet ReGaHss nicht auf ein langsames oder ausgefallenes Modbus-Gerät.
 
