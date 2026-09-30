@@ -55,3 +55,8 @@ CCU-Modbus nutzt die normale CCU/OpenCCU-Zusatzsoftware-Mechanik:
 ## Logo
 
 Für die Darstellung wird das vom Projekt gewünschte Modbus-Logo verwendet: https://seeklogo.com/vector-logo/355093/modbus
+
+
+## Direkter Download
+
+Der CCU-Button **Herunterladen** verweist direkt auf `releases/ccu-modbus-latest.tar.gz`. Diese Datei wird bei jedem erfolgreichen Build aktualisiert und soll vom Browser unmittelbar als TAR.GZ heruntergeladen werden.
