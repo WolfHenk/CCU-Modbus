@@ -21,7 +21,7 @@ puts {<main><div id="notice" class="notice hidden"></div>}
 puts {<section class="toolbar"><div><h2>Modbus-Geräte</h2><div class="hint">Geräte und Werte werden lokal auf der CCU gespeichert.</div></div><button id="addDevice" class="primary">+ Gerät hinzufügen</button></section>}
 puts {<div id="devices" class="devices"><div class="empty">Lade Konfiguration…</div></div>}
 puts {<section class="footerbar"><button id="saveAll" class="primary">Änderungen speichern</button><span id="dirtyText" class="muted">Keine ungespeicherten Änderungen.</span></section>}
-puts {<footer class="copyright">© 2026 Wolfram Henkel · PolyForm Noncommercial 1.0.0</footer>}
+puts {<footer class="copyright">© 2026 Wolfram Henkel · CCU-Modbus Non-Commercial License 1.0</footer>}
 puts {</main>}
 puts {<dialog id="deviceDialog"><form method="dialog" id="deviceForm"><div class="dialoghead"><h2 id="deviceTitle">Gerät</h2><button value="cancel" class="iconbtn">×</button></div>}
 puts {<div class="grid"><label>Name<input id="dName" required></label><label>IP-Adresse / Host<input id="dHost" required></label><label>Port<input id="dPort" type="number" min="1" max="65535" value="502"></label><label>Unit-ID<input id="dUnit" type="number" min="0" max="255" value="1"></label></div>}
