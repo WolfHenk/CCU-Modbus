@@ -298,21 +298,25 @@ func ApplyMetadata(cfg *config.Config) error {
 	var b strings.Builder
 	for _, d := range cfg.Devices {
 		addr := deviceAddress(d)
-		fmt.Fprintf(&b, `object dev=dom.GetObject(%s); if(dev){dev.Name(%s);}`, regaQuote(InterfaceID+"."+addr), regaQuote(d.Name))
+
+		// ReGa object names are user-visible and may differ from the interface
+		// address. Resolve virtual devices/channels by their stable HSS address.
+		fmt.Fprintf(&b, `string did; foreach(did,dom.GetObject(ID_DEVICES).EnumIDs()){object dev=dom.GetObject(did); if(dev && dev.Address()==%s){dev.Name(%s);}}`, regaQuote(addr), regaQuote(d.Name))
+
 		channel := 1
 		for _, r := range d.Registers {
 			if !r.Enabled || strings.ToLower(r.DataType) != "bool" || (r.Type != "coil" && r.Type != "discrete") {
 				continue
 			}
-			chName := fmt.Sprintf("%s.%s:%d", InterfaceID, addr, channel)
-			fmt.Fprintf(&b, `object ch=dom.GetObject(%s); if(ch){ch.Name(%s); string x; foreach(x,dom.GetObject(ID_ROOMS).EnumIDs()){object e=dom.GetObject(x); if(e){e.Remove(ch.ID());}} foreach(x,dom.GetObject(ID_FUNCTIONS).EnumIDs()){object e=dom.GetObject(x); if(e){e.Remove(ch.ID());}}`, regaQuote(chName), regaQuote(r.Name))
+			chAddr := fmt.Sprintf("%s:%d", addr, channel)
+			fmt.Fprintf(&b, `string cid; foreach(cid,dom.GetObject(ID_CHANNELS).EnumIDs()){object ch=dom.GetObject(cid); if(ch && ch.Address()==%s){ch.Name(%s); string x; foreach(x,dom.GetObject(ID_ROOMS).EnumIDs()){object e=dom.GetObject(x); if(e){e.Remove(ch.ID());}} foreach(x,dom.GetObject(ID_FUNCTIONS).EnumIDs()){object e=dom.GetObject(x); if(e){e.Remove(ch.ID());}}`, regaQuote(chAddr), regaQuote(r.Name))
 			if r.RoomID > 0 {
 				fmt.Fprintf(&b, ` object room=dom.GetObject(%d); if(room){room.Add(ch.ID());}`, r.RoomID)
 			}
 			if r.FunctionID > 0 {
 				fmt.Fprintf(&b, ` object fn=dom.GetObject(%d); if(fn){fn.Add(ch.ID());}`, r.FunctionID)
 			}
-			b.WriteString("}")
+			b.WriteString("}}")
 			channel++
 		}
 	}
