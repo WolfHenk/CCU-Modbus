@@ -52,8 +52,9 @@ Für jeden Datenpunkt werden festgelegt:
 - **Faktor**
 - **Offset**
 - **Pollingintervall**
+- **Register aktiv** – legt fest, ob der Datenpunkt verwendet und abgefragt wird
 
-Unter **Erweitert** stehen zusätzlich Byte-Swap, Word-Swap und die Aktivierung des Registers zur Verfügung.
+Unter **Erweitert** stehen zusätzlich Byte-Swap und Word-Swap zur Verfügung.
 
 Mit **Wert testen** kann ein Register unmittelbar gelesen und die Konfiguration geprüft werden.
 
