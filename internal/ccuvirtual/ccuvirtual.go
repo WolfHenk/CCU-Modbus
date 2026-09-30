@@ -33,6 +33,7 @@ type Integration struct {
 	mu       sync.RWMutex
 	switches map[switchKey]*vdevices.DigitalChannel
 	inputs   map[switchKey]*vdevices.DigitalChannel
+	inputTrueMeansOpen map[switchKey]bool
 
 	cancel context.CancelFunc
 }
@@ -52,6 +53,7 @@ func Attach(parent context.Context, mux *http.ServeMux, cfg *config.Config, eng 
 		devices:  vd,
 		switches: make(map[switchKey]*vdevices.DigitalChannel),
 		inputs:   make(map[switchKey]*vdevices.DigitalChannel),
+		inputTrueMeansOpen: make(map[switchKey]bool),
 		cancel:   cancel,
 	}
 
@@ -93,6 +95,7 @@ func (i *Integration) ReplaceConfig(cfg *config.Config, eng *engine.Engine) {
 	}
 	i.switches = make(map[switchKey]*vdevices.DigitalChannel)
 	i.inputs = make(map[switchKey]*vdevices.DigitalChannel)
+	i.inputTrueMeansOpen = make(map[switchKey]bool)
 
 	for _, d := range cfg.Devices {
 		i.addDevice(d, eng)
@@ -115,6 +118,7 @@ func (i *Integration) RemoveAll() {
 	}
 	i.switches = make(map[switchKey]*vdevices.DigitalChannel)
 	i.inputs = make(map[switchKey]*vdevices.DigitalChannel)
+	i.inputTrueMeansOpen = make(map[switchKey]bool)
 	time.Sleep(500 * time.Millisecond)
 }
 
@@ -148,6 +152,7 @@ func (i *Integration) addDevice(d config.Device, eng *engine.Engine) {
 				p.Description().Operations = itf.ParameterOperationRead | itf.ParameterOperationEvent
 			}
 			i.inputs[key] = ch
+			i.inputTrueMeansOpen[key] = reg.TrueMeansOpen
 		}
 	}
 
@@ -189,8 +194,14 @@ func (i *Integration) syncStates(states []model.DeviceState) {
 				continue
 			}
 			if ch := i.inputs[key]; ch != nil {
-				if ch.State() != v {
-					ch.SetState(v)
+				// Homematic SHUTTER_CONTACT uses STATE=true for open.
+				// Modbus input polarity is configurable. Default: raw TRUE means closed.
+				ccuState := v
+				if !i.inputTrueMeansOpen[key] {
+					ccuState = !v
+				}
+				if ch.State() != ccuState {
+					ch.SetState(ccuState)
 				}
 			}
 		}
