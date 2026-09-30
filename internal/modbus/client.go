@@ -148,3 +148,64 @@ func (c *Client) Read(function byte, address, quantity uint16) ([]byte, error) {
 	}
 	return body[2:], nil
 }
+
+
+func (c *Client) WriteSingleCoil(address uint16, value bool) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if err := c.connectLocked(); err != nil {
+		return err
+	}
+	_ = c.conn.SetDeadline(time.Now().Add(c.Timeout))
+
+	c.tx++
+	if c.tx == 0 {
+		c.tx++
+	}
+	tx := c.tx
+
+	raw := uint16(0x0000)
+	if value {
+		raw = 0xFF00
+	}
+	pdu := make([]byte, 5)
+	pdu[0] = 5
+	binary.BigEndian.PutUint16(pdu[1:3], address)
+	binary.BigEndian.PutUint16(pdu[3:5], raw)
+
+	adu := make([]byte, 12)
+	binary.BigEndian.PutUint16(adu[0:2], tx)
+	binary.BigEndian.PutUint16(adu[2:4], 0)
+	binary.BigEndian.PutUint16(adu[4:6], 6)
+	adu[6] = c.UnitID
+	copy(adu[7:], pdu)
+
+	if _, err := c.conn.Write(adu); err != nil {
+		return c.failLocked(err)
+	}
+
+	resp := make([]byte, 12)
+	if _, err := io.ReadFull(c.conn, resp); err != nil {
+		return c.failLocked(err)
+	}
+	if binary.BigEndian.Uint16(resp[0:2]) != tx {
+		return c.failLocked(errors.New("transaction id mismatch"))
+	}
+	if binary.BigEndian.Uint16(resp[2:4]) != 0 {
+		return c.failLocked(errors.New("invalid protocol id"))
+	}
+	if resp[6] != c.UnitID {
+		return c.failLocked(errors.New("unit id mismatch"))
+	}
+	if resp[7] == 0x85 {
+		return &ExceptionError{Function: 5, Code: resp[8]}
+	}
+	if resp[7] != 5 {
+		return c.failLocked(fmt.Errorf("unexpected function %d", resp[7]))
+	}
+	if binary.BigEndian.Uint16(resp[8:10]) != address || binary.BigEndian.Uint16(resp[10:12]) != raw {
+		return c.failLocked(errors.New("write echo mismatch"))
+	}
+	return nil
+}
