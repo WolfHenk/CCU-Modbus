@@ -6,7 +6,7 @@ Die Konfiguration erfolgt vollständig über die WebUI der CCU. Es ist keine Clo
 
 ## Installation
 
-1. Die aktuelle Datei `ccu-modbus-0.1.2.tar.gz` aus dem Verzeichnis `releases/` herunterladen.
+1. Die aktuelle Datei `ccu-modbus-0.1.3.tar.gz` aus dem Verzeichnis `releases/` herunterladen.
 2. In der CCU unter **Einstellungen → Systemsteuerung → Zusatzsoftware** die TAR.GZ-Datei auswählen und installieren.
 3. Bei der ersten Installation ist ein Neustart der CCU erforderlich, damit die XML-RPC-Schnittstelle von ReGaHss übernommen wird.
 4. Anschließend unter **Einstellungen → Systemsteuerung → Zusatzsoftware → CCU-Modbus → Einstellen** die Konfiguration öffnen.
