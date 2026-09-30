@@ -114,10 +114,12 @@ stop_daemon() {
 case "$1" in
   init)
     ensure_interface
+    [ -x "$BASE/bin/register_devtype" ] && "$BASE/bin/register_devtype" install >/dev/null 2>&1 || true
     start_daemon
     ;;
   start|"")
     ensure_interface
+    [ -x "$BASE/bin/register_devtype" ] && "$BASE/bin/register_devtype" install >/dev/null 2>&1 || true
     start_daemon
     ;;
   stop)
@@ -154,6 +156,7 @@ case "$1" in
     # Explicitly unregister all virtual devices while ReGa is still connected.
     /usr/bin/curl -sS --max-time 3 -X POST http://127.0.0.1:18701/unregister-all >/dev/null 2>&1 || true
     stop_daemon
+    [ -x "$BASE/bin/register_devtype" ] && "$BASE/bin/register_devtype" remove >/dev/null 2>&1 || true
     remove_interface || true
     if [ -x "$BASE/bin/update_addon" ]; then
       "$BASE/bin/update_addon" delete ccu-modbus || true
