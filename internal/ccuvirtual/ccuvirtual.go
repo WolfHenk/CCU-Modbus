@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -49,6 +50,7 @@ type Integration struct {
 	switches           map[switchKey]*vdevices.DigitalChannel
 	inputs             map[switchKey]*vdevices.DigitalChannel
 	inputTrueMeansOpen map[switchKey]bool
+	current            *config.Config
 
 	cancel context.CancelFunc
 }
@@ -69,6 +71,7 @@ func Attach(parent context.Context, mux *http.ServeMux, cfg *config.Config, eng 
 		switches:           make(map[switchKey]*vdevices.DigitalChannel),
 		inputs:             make(map[switchKey]*vdevices.DigitalChannel),
 		inputTrueMeansOpen: make(map[switchKey]bool),
+		current:            cfg,
 		cancel:             cancel,
 	}
 
@@ -117,17 +120,28 @@ func (i *Integration) Close() {
 	}
 }
 
-// ReplaceConfig deliberately removes the complete virtual model first. ReGa
-// does not reliably accept new child channels for an already existing virtual
-// device when newDevices contains only the missing children.
+// ReplaceConfig keeps already commissioned devices in ReGa whenever their
+// CCU-visible topology did not change. Ordinary Modbus edits (name, address,
+// scaling, polling, room/function, TRUE meaning, etc.) must therefore not send
+// an already accepted device back to the inbox.
 func (i *Integration) ReplaceConfig(cfg *config.Config, eng *engine.Engine) {
 	if i == nil || i.devices == nil || cfg == nil {
 		return
 	}
 
 	i.mu.Lock()
-	defer i.mu.Unlock()
 
+	if i.canReuseModel(cfg) {
+		i.refreshInputSemantics(cfg)
+		i.current = cfg
+		i.mu.Unlock()
+		_ = ApplyMetadata(cfg)
+		return
+	}
+
+	// A real CCU topology change (device identity or BOOL channel structure)
+	// still requires rebuilding the virtual model. ReGa does not reliably
+	// accept new child channels for an existing virtual device.
 	for _, d := range i.devices.Devices() {
 		_ = i.devices.RemoveDevice(d.Description().Address)
 	}
@@ -143,7 +157,68 @@ func (i *Integration) ReplaceConfig(cfg *config.Config, eng *engine.Engine) {
 	}
 	i.handler.Synchronize()
 	time.Sleep(1200 * time.Millisecond)
+	i.current = cfg
+	i.mu.Unlock()
 	_ = ApplyMetadata(cfg)
+}
+
+func (i *Integration) canReuseModel(next *config.Config) bool {
+	if i.current == nil || next == nil || len(i.current.Devices) != len(next.Devices) {
+		return false
+	}
+
+	oldByAddress := make(map[string]config.Device, len(i.current.Devices))
+	for _, d := range i.current.Devices {
+		oldByAddress[deviceAddress(d)] = d
+	}
+
+	for _, nd := range next.Devices {
+		od, ok := oldByAddress[deviceAddress(nd)]
+		if !ok || od.ID != nd.ID {
+			return false
+		}
+		if !sameVirtualChannels(od, nd) {
+			return false
+		}
+	}
+	return true
+}
+
+func sameVirtualChannels(a, b config.Device) bool {
+	as := virtualChannelSignature(a)
+	bs := virtualChannelSignature(b)
+	if len(as) != len(bs) {
+		return false
+	}
+	for n := range as {
+		if as[n] != bs[n] {
+			return false
+		}
+	}
+	return true
+}
+
+func virtualChannelSignature(d config.Device) []string {
+	out := make([]string, 0, len(d.Registers))
+	for _, r := range d.Registers {
+		if !r.Enabled || strings.ToLower(r.DataType) != "bool" || (r.Type != "coil" && r.Type != "discrete") {
+			continue
+		}
+		out = append(out, r.Type+"|"+r.ID)
+	}
+	return out
+}
+
+func (i *Integration) refreshInputSemantics(cfg *config.Config) {
+	m := make(map[switchKey]bool)
+	for _, d := range cfg.Devices {
+		for _, r := range d.Registers {
+			if r.Enabled && strings.ToLower(r.DataType) == "bool" && r.Type == "discrete" {
+				m[switchKey{deviceID: d.ID, registerID: r.ID}] = r.TrueMeansOpen
+			}
+		}
+	}
+	i.inputTrueMeansOpen = m
 }
 
 // RemoveAll unregisters all virtual ModBus devices while ReGa is connected.
@@ -366,11 +441,27 @@ func regaQuote(s string) string {
 }
 
 func deviceAddress(d config.Device) string {
+	// User-visible HSS serial: "Mod" plus the last eight digits of the
+	// zero-padded IPv4 address. Example: 192.168.3.207 ->
+	// 192168003207 -> Mod68003207.
+	if ip := net.ParseIP(strings.TrimSpace(d.Host)); ip != nil {
+		if v4 := ip.To4(); v4 != nil {
+			digits := fmt.Sprintf("%03d%03d%03d%03d", v4[0], v4[1], v4[2], v4[3])
+			return "Mod" + digits[len(digits)-8:]
+		}
+	}
+
+	// Hostnames are still accepted by the Modbus engine. For the virtual CCU
+	// identity keep a deterministic fallback rather than changing the serial on
+	// every restart.
 	id := cleanToken(d.ID)
 	if id == "" {
 		id = "DEVICE"
 	}
-	return "CCUMODBUS-" + id
+	if len(id) > 8 {
+		id = id[len(id)-8:]
+	}
+	return "Mod" + id
 }
 
 func cleanToken(s string) string {
