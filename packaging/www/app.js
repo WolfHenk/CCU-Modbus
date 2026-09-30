@@ -91,18 +91,55 @@ function typeName(t){return {holding:'Holding',input:'Input',coil:'Coil',discret
 function blankRegister(){return {id:'reg-'+Date.now(),name:'',enabled:true,type:'holding',address:0,datatype:'INT16',factor:1,offset:0,byte_swap:false,word_swap:false,poll_seconds:10,unit:''};}
 function openRegister(idx){
   editRegister=idx;var d=$('deviceDialog')._working,r=idx<0?blankRegister():JSON.parse(JSON.stringify(d.registers[idx]));$('registerDialog')._working=r;$('registerTitle').textContent=idx<0?'Register hinzufügen':'Register bearbeiten';
-  $('rName').value=r.name;$('rType').value=r.type;$('rAddress').value=r.address;$('rDatatype').value=String(r.datatype).toUpperCase();$('rUnit').value=r.unit||'';$('rFactor').value=r.factor;$('rOffset').value=r.offset;$('rPoll').value=r.poll_seconds;$('rByteSwap').checked=r.byte_swap;$('rWordSwap').checked=r.word_swap;$('rEnabled').checked=r.enabled;$('registerResult').textContent='';$('deleteRegister').style.visibility=idx<0?'hidden':'visible';syncDatatype();$('registerDialog').showModal();
+  $('rName').value=r.name;$('rType').value=r.type;$('rAddress').value=r.address;$('rDatatype').value=String(r.datatype).toUpperCase();$('rUnit').value=r.unit||'';$('rFactor').value=r.factor;$('rOffset').value=r.offset;$('rPoll').value=r.poll_seconds;$('rByteSwap').checked=r.byte_swap;$('rWordSwap').checked=r.word_swap;$('rEnabled').checked=r.enabled;$('registerResult').textContent='';$('deleteRegister').style.visibility=idx<0?'hidden':'visible';
+  $('rSeries').checked=false;$('rSeries').disabled=idx>=0;$('rSeriesCount').value=2;syncSeries();syncDatatype();$('registerDialog').showModal();
 }
 function workingRegister(){
   var r=$('registerDialog')._working;r.name=$('rName').value.trim();r.type=$('rType').value;r.address=Number($('rAddress').value);r.datatype=$('rDatatype').value.toLowerCase();r.unit=$('rUnit').value.trim();r.factor=parseNumber($('rFactor').value,1);r.offset=parseNumber($('rOffset').value,0);r.poll_seconds=Number($('rPoll').value);r.byte_swap=$('rByteSwap').checked;r.word_swap=$('rWordSwap').checked;r.enabled=$('rEnabled').checked;return r;
 }
 function parseNumber(v,def){var n=Number(String(v).replace(',','.'));return isFinite(n)?n:def;}
+function numberedName(name,n){
+  var m=String(name||'').match(/^(.*?)(\d+)\s*$/);
+  if(m)return m[1]+n;
+  return String(name||'').replace(/\s+$/,'')+' '+n;
+}
+function registerStride(r){
+  if(r.type==='coil'||r.type==='discrete')return 1;
+  return (r.datatype==='int32'||r.datatype==='uint32'||r.datatype==='float32')?2:1;
+}
+function syncSeries(){
+  var on=$('rSeries').checked;
+  $('rSeriesCountWrap').style.display=on?'':'none';
+}
 function syncDatatype(){var t=$('rType').value;if(t==='coil'||t==='discrete'){$('rDatatype').value='BOOL';$('rDatatype').disabled=true;}else{$('rDatatype').disabled=false;if($('rDatatype').value==='BOOL')$('rDatatype').value='INT16';}}
 
 $('addDevice').onclick=function(){openDevice(-1);};
 $('addRegister').onclick=function(){openRegister(-1);};
 $('rType').onchange=syncDatatype;
-$('applyRegister').onclick=function(){var r=workingRegister();if(!r.name){notice('Bitte eine Bezeichnung eingeben.',true);return;}var d=$('deviceDialog')._working;if(editRegister<0)d.registers.push(r);else d.registers[editRegister]=r;$('registerDialog').close();renderRegisters();};
+$('rSeries').onchange=syncSeries;
+$('applyRegister').onclick=function(){
+  var r=workingRegister();
+  if(!r.name){notice('Bitte eine Bezeichnung eingeben.',true);return;}
+  var d=$('deviceDialog')._working;
+  if(editRegister>=0){
+    d.registers[editRegister]=r;
+  }else if($('rSeries').checked){
+    var count=Number($('rSeriesCount').value);
+    if(!Number.isInteger(count)||count<2||count>256){notice('Die Gesamtanzahl muss zwischen 2 und 256 liegen.',true);return;}
+    var stride=registerStride(r), start=r.address;
+    if(start+(count-1)*stride>65535){notice('Die Registerserie überschreitet Adresse 65535.',true);return;}
+    for(var n=1;n<=count;n++){
+      var x=JSON.parse(JSON.stringify(r));
+      x.id='reg-'+Date.now()+'-'+n;
+      x.name=numberedName(r.name,n);
+      x.address=start+(n-1)*stride;
+      d.registers.push(x);
+    }
+  }else{
+    d.registers.push(r);
+  }
+  $('registerDialog').close();renderRegisters();
+};
 $('deleteRegister').onclick=function(){if(editRegister>=0&&confirm('Dieses Register wirklich löschen?')){$('deviceDialog')._working.registers.splice(editRegister,1);$('registerDialog').close();renderRegisters();}};
 $('applyDevice').onclick=function(){var d=workingDevice();if(!d.name||!d.host){notice('Name und IP-Adresse/Host sind Pflichtfelder.',true);return;}if(editDevice<0)cfg.devices.push(d);else cfg.devices[editDevice]=d;$('deviceDialog').close();setDirty(true);render();};
 $('deleteDevice').onclick=function(){if(editDevice>=0&&confirm('Gerät und alle zugehörigen Register wirklich löschen?')){cfg.devices.splice(editDevice,1);$('deviceDialog').close();setDirty(true);render();}};
