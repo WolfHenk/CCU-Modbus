@@ -24,6 +24,8 @@ if {$action == "status"} {
     set endpoint "/status"
 } elseif {$action == "config"} {
     set endpoint "/config"
+} elseif {$action == "metadata"} {
+    set endpoint "/ccu-metadata"
 } elseif {$action == "save"} {
     set endpoint "/config"
     set needPost 1
