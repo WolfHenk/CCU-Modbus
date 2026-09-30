@@ -91,10 +91,21 @@ func main() {
 				jsonReply(w, http.StatusInternalServerError, map[string]any{"ok": false, "error": err.Error()})
 				return
 			}
+			// Synchronize the virtual CCU device model while ReGa is still
+			// connected. The CGI restarts the daemon immediately afterwards.
+			virt.ReplaceConfig(&next, eng)
 			jsonReply(w, http.StatusOK, map[string]any{"ok": true, "restart_required": true})
 		default:
 			jsonReply(w, http.StatusMethodNotAllowed, map[string]any{"ok": false, "error": "Methode nicht erlaubt"})
 		}
+	})
+	mux.HandleFunc("/unregister-all", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			jsonReply(w, http.StatusMethodNotAllowed, map[string]any{"ok": false, "error": "Methode nicht erlaubt"})
+			return
+		}
+		virt.RemoveAll()
+		jsonReply(w, http.StatusOK, map[string]any{"ok": true})
 	})
 	mux.HandleFunc("/test-connection", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
