@@ -1,98 +1,156 @@
 # CCU-Modbus
 
-CCU/OpenCCU-Add-on für ein einfaches, robustes Modbus-Interface.
+CCU-Modbus ist eine Zusatzsoftware für CCU/OpenCCU, mit der Modbus-TCP-Geräte eingebunden und deren Werte in der CCU nutzbar gemacht werden können.
 
-## Download
+Die Konfiguration erfolgt vollständig über die WebUI der CCU. Es ist keine Cloud, keine externe Datenbank und kein zusätzlicher Server erforderlich.
 
-Aktuelle Testversion:
+## Installation
 
-**[ccu-modbus-0.1.1.tar.gz](releases/ccu-modbus-0.1.1.tar.gz)**
+1. Die aktuelle Datei `ccu-modbus-0.1.1.tar.gz` aus dem Verzeichnis `releases/` herunterladen.
+2. In der CCU unter **Einstellungen → Systemsteuerung → Zusatzsoftware** die TAR.GZ-Datei auswählen und installieren.
+3. Bei der ersten Installation ist ein Neustart der CCU erforderlich, damit die XML-RPC-Schnittstelle von ReGaHss übernommen wird.
+4. Anschließend unter **Einstellungen → Systemsteuerung → Zusatzsoftware → CCU-Modbus → Einstellen** die Konfiguration öffnen.
 
-Die installierbare TAR.GZ-Datei wird nach einem erfolgreichen Build auf `main` direkt im Repository unter `releases/` abgelegt.
+Updates werden auf dem gleichen Weg installiert. Die bestehende Konfiguration bleibt dabei erhalten.
 
-## Stand 0.1.1
+## Erstes Modbus-Gerät einrichten
 
-Korrektur gegenüber test4:
-- URL-Decodierung für CCU-Session-IDs im CGI ergänzt
-- damit funktionieren „Verbindung testen“, „Wert testen“ und Speichern auch bei als `%40...%40` übertragenen Session-IDs
+In CCU-Modbus auf **+ Gerät hinzufügen** klicken.
 
-### Zusatzsoftware-Darstellung
+Benötigt werden:
 
-CCU-Modbus nutzt die normale CCU/OpenCCU-Zusatzsoftware-Mechanik:
+- **Name** – frei wählbarer Gerätename, z. B. `BSM-1216E`
+- **IP-Adresse / Host** – Adresse des Modbus-TCP-Geräts
+- **Port** – normalerweise `502`
+- **Unit-ID** – Modbus-Geräteadresse
 
-- Modbus-Logo und Projektinformationen rechts
-- installierte Version
-- verfügbare Version
-- **Herunterladen**
-- **Neustart**
-- **Deinstallieren**
-- **Einstellen**
+Unter **Erweitert** können Timeout, Anzahl der Wiederholungsversuche und der Gerätestatus eingestellt werden.
 
-### WebUI
+Mit **Verbindung testen** kann geprüft werden, ob das Gerät erreichbar ist.
 
-- Geräteübersicht mit Ampelstatus
-- Gerät hinzufügen, bearbeiten und löschen
-- Verbindungstest
-- Register hinzufügen, bearbeiten und löschen
-- Registertest mit Rohwert und berechnetem Wert
-- Faktor, Offset, Einheit und Pollingintervall
-- Byte-/Word-Swap unter „Erweitert“
-- atomisches Speichern mit Sicherung der letzten Konfiguration
-- WebUI bleibt beim Neustart des Daemons verfügbar
+## Register, Eingänge und Ausgänge anlegen
 
-### Modbus-Kern
+Innerhalb des Geräts auf **+ Register hinzufügen** klicken.
 
-- Modbus TCP FC01, FC02, FC03 und FC04
-- BOOL, UINT16, INT16, UINT32, INT32 und FLOAT32
-- harte TCP-Timeouts und begrenzte Retries
-- eigener Worker und persistente TCP-Verbindung pro Gerät
-- automatische Wiederverbindung
-- individuelle Pollingintervalle pro Register
-- Fehler einzelner Register bleiben lokal
-- lokaler Cache und Status-API
+Für jeden Datenpunkt werden festgelegt:
 
+- **Bezeichnung** – frei wählbarer Name, z. B. `Eingang 1`, `Ausgang 1` oder `Temperatur Vorlauf`
+- **Registertyp**
+  - Coil
+  - Discrete Input
+  - Holding Register
+  - Input Register
+- **Registernummer**
+- **Datentyp**
+  - BOOL
+  - UINT16
+  - INT16
+  - UINT32
+  - INT32
+  - FLOAT32
+- **Einheit**
+- **Faktor**
+- **Offset**
+- **Pollingintervall**
 
-## Logo
+Unter **Erweitert** stehen zusätzlich Byte-Swap, Word-Swap und die Aktivierung des Registers zur Verfügung.
 
-Für die Darstellung wird das vom Projekt gewünschte Modbus-Logo verwendet: https://seeklogo.com/vector-logo/355093/modbus
+Mit **Wert testen** kann ein Register unmittelbar gelesen und die Konfiguration geprüft werden.
 
+## Mehrere aufeinanderfolgende Register automatisch anlegen
 
-## Direkter Download
+Bei gleichartigen Ein- oder Ausgängen muss nicht jeder Kanal einzeln eingegeben werden.
 
-Der CCU-Button **Herunterladen** verweist direkt auf `releases/ccu-modbus-latest.tar.gz`. Diese Datei wird bei jedem erfolgreichen Build aktualisiert und soll vom Browser unmittelbar als TAR.GZ heruntergeladen werden.
+Beispiel:
 
+- Bezeichnung: `Eingang 1`
+- Typ: `Discrete Input`
+- Adresse: `0`
+- **Mehrere aufeinanderfolgende Register anlegen**
+- Gesamtanzahl: `16`
 
-## Virtuelle CCU-Geräte
+CCU-Modbus erzeugt daraus automatisch:
 
-Ab test10 stellt CCU-Modbus konfigurierte Modbus-Geräte über eine eigene XML-RPC-Schnittstelle als virtuelle CCU-Geräte bereit.
+```text
+Eingang 1   Adresse 0
+Eingang 2   Adresse 1
+Eingang 3   Adresse 2
+...
+Eingang 16  Adresse 15
+```
 
-- Gerätetyp: `CCU-MODBUS-...`
-- Kanal 0: Wartungs-/Statuskanal
-- konfigurierte BOOL-Coils: CCU-Schaltkanäle mit `STATE`
-- CCU-Schaltbefehle werden nur in die Geräte-Worker-Warteschlange gelegt; der CCU-RPC-Aufruf wartet niemals auf Modbus
-- Rückmeldungen kommen aus dem lokalen Polling-Cache
-- erste Registrierung der Schnittstelle erfordert einmalig einen Neustart, damit ReGaHss die neue `InterfacesList.xml` einliest
+Alle übrigen Einstellungen werden übernommen.
 
+Bei 32-Bit-Datentypen wird die Modbus-Adresse automatisch in Zweierschritten weitergezählt.
 
-## Lizenz
+## Konfiguration speichern
 
-CCU-Modbus steht unter der **PolyForm Noncommercial License 1.0.0**.
+Änderungen werden zunächst nur im Dialog vorgenommen.
 
-- Copyright (c) 2026 Wolfram Henkel
-- private und sonstige nichtkommerzielle Nutzung erlaubt
-- Änderungen und Weitergabe erlaubt
-- Copyright- und Lizenzhinweis müssen erhalten bleiben
-- **kommerzielle Nutzung ist nicht gestattet**
+Mit **Übernehmen** wird das bearbeitete Gerät in die aktuelle Konfiguration übernommen. Mit **Änderungen speichern** wird die gesamte Konfiguration dauerhaft auf der CCU gespeichert.
 
-Der Name Modbus und das Modbus-Logo sind davon ausgenommen und bleiben Fremdmarken/-assets; siehe `THIRD_PARTY_NOTICES`.
+Die Konfiguration liegt unter:
 
+```text
+/usr/local/etc/config/addons/ccu-modbus/config.json
+```
+
+Sie bleibt bei Updates erhalten.
+
+## Darstellung in der CCU
+
+Jedes konfigurierte Modbus-Gerät wird als virtuelles CCU-Gerät der Geräteklasse **ModBus** bereitgestellt.
+
+Das virtuelle Gerät besitzt:
+
+- Kanal 0 als Wartungs-/Statuskanal
+- BOOL-Coils als schaltbare CCU-Kanäle
+- BOOL-Discrete-Inputs als nur lesbare CCU-Kanäle
+
+Schaltbefehle der CCU werden nicht synchron direkt auf Modbus ausgeführt. Sie werden an den jeweiligen Geräte-Worker übergeben. Dadurch wartet ReGaHss nicht auf ein langsames oder ausgefallenes Modbus-Gerät.
+
+Die Rückmeldungen an die CCU stammen aus dem lokalen Polling-Cache.
+
+Weitere Registertypen werden bereits von CCU-Modbus gelesen und angezeigt; ihre Abbildung auf zusätzliche CCU-Kanaltypen wird schrittweise erweitert.
+
+## Status und Diagnose
+
+In der Geräteübersicht zeigt eine Ampel den Zustand:
+
+- **Grün** – Gerät erreichbar
+- **Gelb** – Gerät erreichbar, einzelne Register mit Fehlern
+- **Rot** – Gerät nicht erreichbar oder Konfigurationsfehler
+
+Zu jedem Register werden aktueller Wert und Qualität angezeigt.
+
+Kommunikationsfehler werden lokal behandelt. Ein fehlerhaftes Register oder ein ausgefallenes Modbus-Gerät blockiert keine anderen Geräte.
+
+## Unterstützte Modbus-Funktionen
+
+Aktuell unterstützt:
+
+- FC01 – Read Coils
+- FC02 – Read Discrete Inputs
+- FC03 – Read Holding Registers
+- FC04 – Read Input Registers
+- FC05 – Write Single Coil
+
+Modbus TCP ist die derzeit unterstützte Transportart. Modbus RTU/RS485 ist für spätere Erweiterungen vorgesehen.
+
+## Deinstallation
+
+CCU-Modbus kann über **Einstellungen → Systemsteuerung → Zusatzsoftware** deinstalliert werden.
+
+Dabei werden der Dienst, die Zusatzsoftware-Einträge und die von CCU-Modbus bereitgestellten virtuellen Geräte entfernt.
+
+Ein in CCU-Modbus gelöschtes Gerät soll ebenfalls aus der CCU-Geräteliste verschwinden.
 
 ## Lizenz
 
 CCU-Modbus steht unter der **CCU-Modbus Non-Commercial License 1.0**.
-Private, gemeinnützige und sonstige nichtkommerzielle Nutzung ist gestattet.
-Kommerzielle Nutzung ist nur mit vorheriger schriftlicher Genehmigung des
-Urheberrechtsinhabers zulässig.
 
-Das Modbus-Logo ist ein fremdes Marken-/Logo-Asset und wird durch die
-CCU-Modbus-Lizenz nicht mitlizenziert. Siehe `THIRD_PARTY_NOTICES`.
+Private, gemeinnützige und sonstige nichtkommerzielle Nutzung ist erlaubt. Kommerzielle Nutzung ist nur mit vorheriger schriftlicher Genehmigung des Urheberrechtsinhabers zulässig.
+
+Der Name **Modbus** und das Modbus-Logo sind fremde Marken bzw. Assets und werden durch die CCU-Modbus-Lizenz nicht mitlizenziert. Einzelheiten stehen in `LICENSE` und `THIRD_PARTY_NOTICES`.
+
+Copyright © 2026 Wolfram Henkel
