@@ -60,7 +60,7 @@ function renderValues(idx, box){
       if(rs.value.value!==undefined){if(r.type==='discrete'&&typeof rs.value.value==='boolean'){v=rs.value.value?(r.true_means_open?'offen':'geschlossen'):(r.true_means_open?'geschlossen':'offen');}else{v=rs.value.value+(r.unit?' '+esc(r.unit):'');}}
       if(rs.value.error)q=rs.value.error;
     }
-    html+='<div class="valueRow"><span>'+esc(r.name)+'</span><strong>'+v+'</strong><span class="quality">'+esc(q)+'</span></div>';
+    html+='<div class="valueRow"><span class="regName"><img class="regIcon" src="'+registerIcon(r.type)+'" alt="">'+esc(r.name)+'</span><strong>'+v+'</strong><span class="quality">'+esc(q)+'</span></div>';
   });
   box.innerHTML=html||'<span class="muted">Keine Register vorhanden.</span>';
 }
@@ -84,9 +84,10 @@ function workingDevice(){
 }
 function renderRegisters(){
   var d=$('deviceDialog')._working, tb=$('registerRows');tb.innerHTML='';
-  d.registers.forEach(function(r,i){var tr=document.createElement('tr');tr.innerHTML='<td>'+esc(r.name)+'</td><td>'+esc(typeName(r.type))+'</td><td>'+r.address+'</td><td>'+esc(r.datatype)+'</td><td>'+r.factor+'</td><td>'+r.poll_seconds+' s</td><td><button type="button" data-r="'+i+'">Bearbeiten</button></td>';tb.appendChild(tr);});
+  d.registers.forEach(function(r,i){var tr=document.createElement('tr');tr.innerHTML='<td><span class="regName"><img class="regIcon" src="'+registerIcon(r.type)+'" alt="">'+esc(r.name)+'</span></td><td>'+esc(typeName(r.type))+'</td><td>'+r.address+'</td><td>'+esc(r.datatype)+'</td><td>'+r.factor+'</td><td>'+r.poll_seconds+' s</td><td><button type="button" data-r="'+i+'">Bearbeiten</button></td>';tb.appendChild(tr);});
   tb.querySelectorAll('[data-r]').forEach(function(b){b.onclick=function(){openRegister(Number(this.getAttribute('data-r')));};});
 }
+function registerIcon(t){return {coil:'img/modbus-output.svg',discrete:'img/modbus-input.svg',holding:'img/modbus-register.svg',input:'img/modbus-input-register.svg'}[t]||'img/modbus-register.svg';}
 function typeName(t){return {holding:'Holding',input:'Input',coil:'Coil',discrete:'Discrete'}[t]||t;}
 function blankRegister(){return {id:'reg-'+Date.now(),name:'',enabled:true,type:'holding',address:0,datatype:'INT16',factor:1,offset:0,byte_swap:false,word_swap:false,poll_seconds:10,unit:'',true_means_open:false};}
 function openRegister(idx){
