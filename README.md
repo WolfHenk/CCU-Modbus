@@ -85,3 +85,14 @@ CCU-Modbus steht unter der **PolyForm Noncommercial License 1.0.0**.
 - **kommerzielle Nutzung ist nicht gestattet**
 
 Der Name Modbus und das Modbus-Logo sind davon ausgenommen und bleiben Fremdmarken/-assets; siehe `THIRD_PARTY_NOTICES`.
+
+
+## Lizenz
+
+CCU-Modbus steht unter der **CCU-Modbus Non-Commercial License 1.0**.
+Private, gemeinnützige und sonstige nichtkommerzielle Nutzung ist gestattet.
+Kommerzielle Nutzung ist nur mit vorheriger schriftlicher Genehmigung des
+Urheberrechtsinhabers zulässig.
+
+Das Modbus-Logo ist ein fremdes Marken-/Logo-Asset und wird durch die
+CCU-Modbus-Lizenz nicht mitlizenziert. Siehe `THIRD_PARTY_NOTICES`.
