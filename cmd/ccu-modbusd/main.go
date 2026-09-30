@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/syslog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -23,8 +24,14 @@ func main() {
 	check := flag.Bool("check", false, "Konfiguration pruefen und beenden")
 	flag.Parse()
 
-	log.SetPrefix("ccu-modbus: ")
-	log.SetFlags(log.Ldate | log.Ltime)
+	if sw, err := syslog.New(syslog.LOG_DAEMON|syslog.LOG_INFO, "ccu-modbus"); err == nil {
+		log.SetOutput(sw)
+		defer sw.Close()
+		log.SetFlags(0)
+	} else {
+		log.SetPrefix("ccu-modbus: ")
+		log.SetFlags(log.Ldate | log.Ltime)
+	}
 
 	cfg, err := config.Load(*configPath)
 	if err != nil {
