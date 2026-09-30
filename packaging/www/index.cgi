@@ -16,7 +16,7 @@ puts "\r"
 puts {<!doctype html>}
 puts {<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">}
 puts {<title>CCU-Modbus</title><link rel="stylesheet" href="style.css"></head><body>}
-puts {<header class="top"><div><img src="https://images.seeklogo.com/logo-png/35/1/modbus-logo-png_seeklogo-355093.png" class="logo" alt="Modbus"></div><div><h1>CCU-Modbus</h1><div class="sub">Modbus TCP Interface für CCU/OpenCCU</div></div><div class="version">0.1.0-test7</div></header>}
+puts {<header class="top"><div><img src="https://images.seeklogo.com/logo-png/35/1/modbus-logo-png_seeklogo-355093.png" class="logo" alt="Modbus"></div><div><h1>CCU-Modbus</h1><div class="sub">Modbus TCP Interface für CCU/OpenCCU</div></div><div class="version">0.1.0-test8</div></header>}
 puts {<main><div id="notice" class="notice hidden"></div>}
 puts {<section class="toolbar"><div><h2>Modbus-Geräte</h2><div class="hint">Geräte und Werte werden lokal auf der CCU gespeichert.</div></div><button id="addDevice" class="primary">+ Gerät hinzufügen</button></section>}
 puts {<div id="devices" class="devices"><div class="empty">Lade Konfiguration…</div></div>}
