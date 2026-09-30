@@ -1,8 +1,12 @@
 package ccuvirtual
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -19,6 +23,7 @@ import (
 const (
 	InterfaceID = "CCU-Modbus"
 	RPCPath     = "/RPC3"
+	regaURL     = "http://127.0.0.1:8181/rega.exe"
 )
 
 type switchKey struct {
@@ -26,13 +31,23 @@ type switchKey struct {
 	registerID string
 }
 
+type MetadataItem struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+type Metadata struct {
+	Rooms     []MetadataItem `json:"rooms"`
+	Functions []MetadataItem `json:"functions"`
+}
+
 type Integration struct {
 	handler *vdevices.Handler
 	devices *vdevices.Container
 
-	mu       sync.RWMutex
-	switches map[switchKey]*vdevices.DigitalChannel
-	inputs   map[switchKey]*vdevices.DigitalChannel
+	mu                 sync.RWMutex
+	switches           map[switchKey]*vdevices.DigitalChannel
+	inputs             map[switchKey]*vdevices.DigitalChannel
 	inputTrueMeansOpen map[switchKey]bool
 
 	cancel context.CancelFunc
@@ -49,26 +64,42 @@ func Attach(parent context.Context, mux *http.ServeMux, cfg *config.Config, eng 
 	mux.Handle(RPCPath, &xmlrpc.Handler{Dispatcher: dispatcher})
 
 	in := &Integration{
-		handler:  h,
-		devices:  vd,
-		switches: make(map[switchKey]*vdevices.DigitalChannel),
-		inputs:   make(map[switchKey]*vdevices.DigitalChannel),
+		handler:            h,
+		devices:            vd,
+		switches:           make(map[switchKey]*vdevices.DigitalChannel),
+		inputs:             make(map[switchKey]*vdevices.DigitalChannel),
 		inputTrueMeansOpen: make(map[switchKey]bool),
-		cancel:   cancel,
+		cancel:             cancel,
 	}
 
 	for _, d := range cfg.Devices {
 		in.addDevice(d, eng)
 	}
 
-	// Re-establish the ReGa logic-layer callback after every daemon start.
-	// ReGa normally calls init only when it starts itself, so an add-on daemon
-	// restart would otherwise lose the servant and later structure changes
-	// (new/deleted channels) would never reach ReGa.
-	_ = h.Init("xmlrpc_bin://127.0.0.1:31999", InterfaceID)
-
+	go in.connectReGa(ctx, cfg)
 	go in.syncLoop(ctx, eng)
 	return in
+}
+
+func (i *Integration) connectReGa(ctx context.Context, cfg *config.Config) {
+	t := time.NewTicker(2 * time.Second)
+	defer t.Stop()
+
+	for {
+		if id, err := resolveInterfaceID(); err == nil && id != "" {
+			if err := i.handler.Init("xmlrpc_bin://127.0.0.1:31999", id); err == nil {
+				time.Sleep(800 * time.Millisecond)
+				_ = ApplyMetadata(cfg)
+				return
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
 }
 
 func (i *Integration) Close() {
@@ -86,8 +117,9 @@ func (i *Integration) Close() {
 	}
 }
 
-// ReplaceConfig updates the CCU device model while ReGa is still connected.
-// This is called before the daemon restart after a successful configuration save.
+// ReplaceConfig deliberately removes the complete virtual model first. ReGa
+// does not reliably accept new child channels for an already existing virtual
+// device when newDevices contains only the missing children.
 func (i *Integration) ReplaceConfig(cfg *config.Config, eng *engine.Engine) {
 	if i == nil || i.devices == nil || cfg == nil {
 		return
@@ -99,11 +131,7 @@ func (i *Integration) ReplaceConfig(cfg *config.Config, eng *engine.Engine) {
 	for _, d := range i.devices.Devices() {
 		_ = i.devices.RemoveDevice(d.Description().Address)
 	}
-
-	// Synchronization uses the current container state when the queued sync
-	// command is processed. Keep the container empty long enough for ReGa to
-	// actually receive deleteDevices before we recreate the same address with
-	// a changed channel layout.
+	i.handler.Synchronize()
 	time.Sleep(1200 * time.Millisecond)
 
 	i.switches = make(map[switchKey]*vdevices.DigitalChannel)
@@ -113,11 +141,12 @@ func (i *Integration) ReplaceConfig(cfg *config.Config, eng *engine.Engine) {
 	for _, d := range cfg.Devices {
 		i.addDevice(d, eng)
 	}
-	time.Sleep(800 * time.Millisecond)
+	i.handler.Synchronize()
+	time.Sleep(1200 * time.Millisecond)
+	_ = ApplyMetadata(cfg)
 }
 
 // RemoveAll unregisters all virtual ModBus devices while ReGa is connected.
-// It is intended for add-on uninstall only.
 func (i *Integration) RemoveAll() {
 	if i == nil || i.devices == nil {
 		return
@@ -129,16 +158,15 @@ func (i *Integration) RemoveAll() {
 	for _, d := range i.devices.Devices() {
 		_ = i.devices.RemoveDevice(d.Description().Address)
 	}
+	i.handler.Synchronize()
 	i.switches = make(map[switchKey]*vdevices.DigitalChannel)
 	i.inputs = make(map[switchKey]*vdevices.DigitalChannel)
 	i.inputTrueMeansOpen = make(map[switchKey]bool)
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(800 * time.Millisecond)
 }
 
 func (i *Integration) addDevice(d config.Device, eng *engine.Engine) {
 	addr := deviceAddress(d)
-	// The CCU device class is intentionally independent of vendor/model.
-	// The configurable instance name and channel layout are separate concerns.
 	dev := vdevices.NewDevice(addr, "ModBus", i.handler)
 	vdevices.NewMaintenanceChannel(dev)
 
@@ -159,7 +187,6 @@ func (i *Integration) addDevice(d config.Device, eng *engine.Engine) {
 			i.switches[key] = ch
 
 		case "discrete":
-			// Standard CCU contact channel, but explicitly read-only.
 			ch := vdevices.NewDoorSensorChannel(dev)
 			if p, err := ch.ValueParamset().Parameter("STATE"); err == nil {
 				p.Description().Operations = itf.ParameterOperationRead | itf.ParameterOperationEvent
@@ -207,8 +234,6 @@ func (i *Integration) syncStates(states []model.DeviceState) {
 				continue
 			}
 			if ch := i.inputs[key]; ch != nil {
-				// Homematic SHUTTER_CONTACT uses STATE=true for open.
-				// Modbus input polarity is configurable. Default: raw TRUE means closed.
 				ccuState := v
 				if !i.inputTrueMeansOpen[key] {
 					ccuState = !v
@@ -219,6 +244,121 @@ func (i *Integration) syncStates(states []model.DeviceState) {
 			}
 		}
 	}
+}
+
+func resolveInterfaceID() (string, error) {
+	out, err := runReGa(`object o=dom.GetObject("CCU-Modbus"); if(o){Write(o.ID());}`)
+	if err != nil {
+		return "", err
+	}
+	id := strings.TrimSpace(out)
+	n, err := strconv.Atoi(id)
+	if err != nil || n <= 0 {
+		return "", fmt.Errorf("CCU-Modbus interface ID nicht gefunden: %q", id)
+	}
+	return id, nil
+}
+
+func ReadMetadata() (Metadata, error) {
+	script := `string id;
+foreach(id, dom.GetObject(ID_ROOMS).EnumIDs()){object o=dom.GetObject(id); if(o){WriteLine("R\t"#o.ID()#"\t"#o.Name());}}
+foreach(id, dom.GetObject(ID_FUNCTIONS).EnumIDs()){object o=dom.GetObject(id); if(o){WriteLine("F\t"#o.ID()#"\t"#o.Name());}}`
+	out, err := runReGa(script)
+	if err != nil {
+		return Metadata{}, err
+	}
+
+	var m Metadata
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSuffix(line, "\r")
+		p := strings.SplitN(line, "\t", 3)
+		if len(p) != 3 {
+			continue
+		}
+		id, err := strconv.Atoi(strings.TrimSpace(p[1]))
+		if err != nil {
+			continue
+		}
+		item := MetadataItem{ID: id, Name: p[2]}
+		switch p[0] {
+		case "R":
+			m.Rooms = append(m.Rooms, item)
+		case "F":
+			m.Functions = append(m.Functions, item)
+		}
+	}
+	return m, nil
+}
+
+func ApplyMetadata(cfg *config.Config) error {
+	if cfg == nil {
+		return nil
+	}
+
+	var b strings.Builder
+	for _, d := range cfg.Devices {
+		addr := deviceAddress(d)
+		fmt.Fprintf(&b, `object dev=dom.GetObject(%s); if(dev){dev.Name(%s);}`, regaQuote(InterfaceID+"."+addr), regaQuote(d.Name))
+		channel := 1
+		for _, r := range d.Registers {
+			if !r.Enabled || strings.ToLower(r.DataType) != "bool" || (r.Type != "coil" && r.Type != "discrete") {
+				continue
+			}
+			chName := fmt.Sprintf("%s.%s:%d", InterfaceID, addr, channel)
+			fmt.Fprintf(&b, `object ch=dom.GetObject(%s); if(ch){ch.Name(%s); string x; foreach(x,dom.GetObject(ID_ROOMS).EnumIDs()){object e=dom.GetObject(x); if(e){e.Remove(ch.ID());}} foreach(x,dom.GetObject(ID_FUNCTIONS).EnumIDs()){object e=dom.GetObject(x); if(e){e.Remove(ch.ID());}}`, regaQuote(chName), regaQuote(r.Name))
+			if r.RoomID > 0 {
+				fmt.Fprintf(&b, ` object room=dom.GetObject(%d); if(room){room.Add(ch.ID());}`, r.RoomID)
+			}
+			if r.FunctionID > 0 {
+				fmt.Fprintf(&b, ` object fn=dom.GetObject(%d); if(fn){fn.Add(ch.ID());}`, r.FunctionID)
+			}
+			b.WriteString("}")
+			channel++
+		}
+	}
+	_, err := runReGa(b.String())
+	return err
+}
+
+func runReGa(script string) (string, error) {
+	req, err := http.NewRequest(http.MethodPost, regaURL, bytes.NewBufferString(script))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "text/plain")
+	cln := &http.Client{Timeout: 4 * time.Second}
+	resp, err := cln.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 512*1024))
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("ReGa HTTP %d", resp.StatusCode)
+	}
+	if p := bytes.Index(body, []byte("<xml>")); p >= 0 {
+		body = body[:p]
+	}
+	return latin1(body), nil
+}
+
+func latin1(b []byte) string {
+	r := make([]rune, len(b))
+	for n, c := range b {
+		r[n] = rune(c)
+	}
+	return string(r)
+}
+
+func regaQuote(s string) string {
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, """, "\\"")
+	s = strings.ReplaceAll(s, "\r", " ")
+	s = strings.ReplaceAll(s, "\n", " ")
+	return """ + s + """
 }
 
 func deviceAddress(d config.Device) string {
