@@ -76,4 +76,12 @@ Ab test10 stellt CCU-Modbus konfigurierte Modbus-Geräte über eine eigene XML-R
 
 ## Lizenz
 
-BSD-2-Clause — Copyright (c) 2026 Wolfram Henkel. Weiterverarbeitung und Weitergabe sind erlaubt, sofern Copyright- und Lizenzhinweis erhalten bleiben.
+CCU-Modbus steht unter der **PolyForm Noncommercial License 1.0.0**.
+
+- Copyright (c) 2026 Wolfram Henkel
+- private und sonstige nichtkommerzielle Nutzung erlaubt
+- Änderungen und Weitergabe erlaubt
+- Copyright- und Lizenzhinweis müssen erhalten bleiben
+- **kommerzielle Nutzung ist nicht gestattet**
+
+Der Name Modbus und das Modbus-Logo sind davon ausgenommen und bleiben Fremdmarken/-assets; siehe `THIRD_PARTY_NOTICES`.
