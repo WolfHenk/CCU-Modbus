@@ -7,7 +7,7 @@ Modbus name and logo
 with the Modbus Organization, Inc. and/or their respective rights holders.
 
 The Modbus logo included with this project is a third-party brand asset and
-is NOT licensed under the BSD-2-Clause license that applies to CCU-Modbus.
+is NOT licensed under the CCU-Modbus Non-Commercial License 1.0.
 
 Its inclusion is solely to identify compatibility with the Modbus protocol
 and does not imply endorsement, sponsorship, membership, certification, or
@@ -15,3 +15,8 @@ affiliation with the Modbus Organization.
 
 Project copyright:
 Copyright (c) 2026 Wolfram Henkel
+
+
+No permission to sublicense, modify, sell, or commercially exploit the Modbus
+name or logo is granted by the CCU-Modbus license. Any such rights must be
+obtained from the respective rights holder.
