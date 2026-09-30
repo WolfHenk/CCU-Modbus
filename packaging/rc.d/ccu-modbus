@@ -41,11 +41,18 @@ case "$1" in
     start_daemon
     ;;
   info)
+    VER="$(cat "$BASE/VERSION" 2>/dev/null)"
     echo "Name: CCU-Modbus"
-    echo "Version: $(cat "$BASE/VERSION" 2>/dev/null)"
-    echo "Info: <div style='text-align:center'><img src='/addons/ccu-modbus/img/modbus-logo.svg' style='max-width:170px;max-height:55px'><br><b>CCU-Modbus</b><br>Modbus TCP Interface fuer CCU/OpenCCU</div>"
+    echo "Version: $VER"
+    echo "Info: <div style='text-align:center'>"
+    echo "Info: <img src='/addons/ccu-modbus/img/modbus-logo.svg' style='max-width:235px;max-height:70px;margin:2px 0 5px 0' alt='Modbus'><br>"
+    echo "Info: <b>CCU-Modbus $VER</b><br>"
+    echo "Info: Modbus TCP Interface fuer CCU/OpenCCU<br><br>"
+    echo "Info: <a href='https://github.com/WolfHenk/CCU-Modbus' target='_blank'>https://github.com/WolfHenk/CCU-Modbus</a>"
+    echo "Info: </div>"
     echo "Config-Url: /addons/ccu-modbus/index.cgi"
     echo "Operations: restart uninstall"
+    echo "Update: /addons/ccu-modbus/update-check.cgi"
     ;;
   uninstall)
     stop_daemon
@@ -56,6 +63,10 @@ case "$1" in
     rm -rf /usr/local/etc/config/addons/$ADDON
     rm -f /usr/local/etc/config/rc.d/$ADDON
     rm -rf "$BASE"
+    ;;
+  *)
+    echo "Usage: $ADDON {start|stop|restart|info|uninstall}" >&2
+    exit 1
     ;;
 esac
 

@@ -6,11 +6,33 @@ CCU/OpenCCU-Add-on für ein einfaches, robustes Modbus-Interface.
 
 Aktuelle Testversion:
 
-**[ccu-modbus-0.1.0-test3.tar.gz](releases/ccu-modbus-0.1.0-test3.tar.gz)**
+**[ccu-modbus-0.1.0-test4.tar.gz](releases/ccu-modbus-0.1.0-test4.tar.gz)**
 
 Die installierbare TAR.GZ-Datei wird nach einem erfolgreichen Build auf `main` direkt im Repository unter `releases/` abgelegt.
 
-## Stand 0.1.0-test3
+## Zusatzsoftware-Darstellung
+
+CCU-Modbus nutzt die normale CCU/OpenCCU-Zusatzsoftware-Mechanik:
+
+- Modbus-Logo und Projektinformationen rechts
+- installierte Version
+- verfügbare Version
+- **Herunterladen**
+- **Neustart**
+- **Deinstallieren**
+- **Einstellen**
+
+Die Schaltflächen entstehen über die Standardfelder des `rc.d ... info`-Aufrufs:
+
+- `Version:`
+- `Info:`
+- `Update:`
+- `Operations:`
+- `Config-Url:`
+
+Hinweis: Solange dieses Repository privat ist, kann die CCU GitHub ohne Zugangsdaten nicht selbst nach der neuesten Version fragen. Dann zeigt der automatische Versionscheck `n/a`. Der Mechanismus ist bereits vollständig eingebaut und funktioniert automatisch, sobald die Downloadquelle öffentlich erreichbar ist.
+
+## Stand 0.1.0-test4
 
 ### WebUI
 
@@ -43,13 +65,3 @@ Die installierbare TAR.GZ-Datei wird nach einem erfolgreichen Build auf `main` d
 - optimierte Blockabfragen
 - Online-Profilbibliothek
 - Modbus RTU/RS485
-
-## Architekturgrundsätze
-
-1. Kein externer Dienst ist für den Betrieb erforderlich.
-2. Kein CCU/RPC-Aufruf darf auf eine Modbus-Antwort warten.
-3. Ein Modbus-Gerät darf kein anderes Gerät blockieren.
-4. Ein fehlerhaftes Register darf den Daemon nicht beenden.
-5. Gültige Geräte laufen trotz fehlerhafter Konfiguration anderer Geräte weiter.
-6. Schreibzugriffe sind standardmäßig deaktiviert.
-7. Persistente Daten liegen unter `/usr/local/etc/config/addons/ccu-modbus`.
