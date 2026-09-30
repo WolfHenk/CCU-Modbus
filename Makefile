@@ -18,7 +18,8 @@ package: test build
 	rm -rf build/pkg && mkdir -p build/pkg/bin build/pkg/rc.d build/pkg/www build/pkg/lib build/pkg/examples
 	cp -a build/bin/* build/pkg/bin/
 	cp packaging/bin/update_addon build/pkg/bin/update_addon
-	chmod 755 build/pkg/bin/update_addon
+	cp packaging/bin/register_devtype build/pkg/bin/register_devtype
+	chmod 755 build/pkg/bin/update_addon build/pkg/bin/register_devtype
 	cp packaging/update_script build/pkg/
 	cp packaging/rc.d/ccu-modbus build/pkg/rc.d/
 	cp -a packaging/www/. build/pkg/www/
