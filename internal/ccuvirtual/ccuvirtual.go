@@ -35,7 +35,7 @@ type Integration struct {
 func Attach(parent context.Context, mux *http.ServeMux, cfg *config.Config, eng *engine.Engine) *Integration {
 	ctx, cancel := context.WithCancel(parent)
 	vd := vdevices.NewContainer()
-	h := vdevices.NewHandler("127.0.0.1", true, vd, func(string) {})
+	h := vdevices.NewHandler("127.0.0.1", false, vd, func(string) {})
 	vd.Synchronizer = h
 
 	dispatcher := itf.NewDispatcher()
