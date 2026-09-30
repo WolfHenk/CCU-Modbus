@@ -5,6 +5,27 @@ BASE=/usr/local/addons/$ADDON
 BIN=$BASE/bin/ccu-modbusd
 CONF=/usr/local/etc/config/addons/$ADDON/config.json
 PID=/var/run/$ADDON.pid
+INTERFACES=/etc/config/InterfacesList.xml
+
+ensure_interface() {
+  [ -f "$INTERFACES" ] || return 0
+  grep -q "<name>CCU-Modbus</name>" "$INTERFACES" && return 0
+
+  TMP="$INTERFACES.ccu-modbus.$"
+  awk '
+    /<\/interfaces>/ {
+      print "\t<ipc>"
+      print "\t \t<name>CCU-Modbus</name>"
+      print "\t \t<url>xmlrpc://127.0.0.1:18701/RPC3</url>"
+      print "\t \t<info>CCU-Modbus</info>"
+      print "\t</ipc>"
+    }
+    { print }
+  ' "$INTERFACES" > "$TMP" || return 1
+
+  cat "$TMP" > "$INTERFACES"
+  rm -f "$TMP"
+}
 
 is_running() {
   [ -f "$PID" ] || return 1
@@ -62,9 +83,11 @@ stop_daemon() {
 
 case "$1" in
   init)
+    ensure_interface
     start_daemon
     ;;
   start|"")
+    ensure_interface
     start_daemon
     ;;
   stop)
