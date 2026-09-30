@@ -93,6 +93,13 @@ func (i *Integration) ReplaceConfig(cfg *config.Config, eng *engine.Engine) {
 	for _, d := range i.devices.Devices() {
 		_ = i.devices.RemoveDevice(d.Description().Address)
 	}
+
+	// Synchronization uses the current container state when the queued sync
+	// command is processed. Keep the container empty long enough for ReGa to
+	// actually receive deleteDevices before we recreate the same address with
+	// a changed channel layout.
+	time.Sleep(1200 * time.Millisecond)
+
 	i.switches = make(map[switchKey]*vdevices.DigitalChannel)
 	i.inputs = make(map[switchKey]*vdevices.DigitalChannel)
 	i.inputTrueMeansOpen = make(map[switchKey]bool)
@@ -100,7 +107,7 @@ func (i *Integration) ReplaceConfig(cfg *config.Config, eng *engine.Engine) {
 	for _, d := range cfg.Devices {
 		i.addDevice(d, eng)
 	}
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(800 * time.Millisecond)
 }
 
 // RemoveAll unregisters all virtual ModBus devices while ReGa is connected.
