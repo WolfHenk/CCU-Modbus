@@ -4,6 +4,7 @@ LDFLAGS=-s -w -X main.version=$(VERSION)
 .PHONY: test build package clean
 
 test:
+	go mod tidy
 	go test ./...
 	go vet ./...
 
