@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/WolfHenk/ccu-modbus/internal/ccuvirtual"
 	"github.com/WolfHenk/ccu-modbus/internal/config"
 	"github.com/WolfHenk/ccu-modbus/internal/engine"
 )
@@ -53,6 +54,8 @@ func main() {
 	defer eng.Stop()
 
 	mux := http.NewServeMux()
+	virt := ccuvirtual.Attach(ctx, mux, cfg, eng)
+	defer virt.Close()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		jsonReply(w, http.StatusOK, map[string]any{"ok": true, "version": version})
 	})
