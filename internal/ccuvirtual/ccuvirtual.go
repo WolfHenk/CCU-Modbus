@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -29,6 +30,7 @@ type Integration struct {
 	handler *vdevices.Handler
 	devices *vdevices.Container
 
+	mu       sync.RWMutex
 	switches map[switchKey]*vdevices.DigitalChannel
 	inputs   map[switchKey]*vdevices.DigitalChannel
 
@@ -68,24 +70,50 @@ func (i *Integration) Close() {
 	if i.cancel != nil {
 		i.cancel()
 	}
-
-	// Remove our virtual devices while the XML-RPC servants are still alive.
-	// This makes ReGa forget deleted devices on config restart and all devices
-	// on add-on uninstall instead of leaving stale CCU objects behind.
-	if i.devices != nil {
-		for _, d := range i.devices.Devices() {
-			_ = i.devices.RemoveDevice(d.Description().Address)
-		}
-		// Synchronization is asynchronous in go-hmccu. Give deleteDevices a
-		// short bounded window before closing the servants.
-		time.Sleep(750 * time.Millisecond)
-	}
 	if i.handler != nil {
 		i.handler.Close()
 	}
 	if i.devices != nil {
 		i.devices.Dispose()
 	}
+}
+
+// ReplaceConfig updates the CCU device model while ReGa is still connected.
+// This is called before the daemon restart after a successful configuration save.
+func (i *Integration) ReplaceConfig(cfg *config.Config, eng *engine.Engine) {
+	if i == nil || i.devices == nil || cfg == nil {
+		return
+	}
+
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	for _, d := range i.devices.Devices() {
+		_ = i.devices.RemoveDevice(d.Description().Address)
+	}
+	i.switches = make(map[switchKey]*vdevices.DigitalChannel)
+	i.inputs = make(map[switchKey]*vdevices.DigitalChannel)
+
+	for _, d := range cfg.Devices {
+		i.addDevice(d, eng)
+	}
+}
+
+// RemoveAll unregisters all virtual ModBus devices while ReGa is connected.
+// It is intended for add-on uninstall only.
+func (i *Integration) RemoveAll() {
+	if i == nil || i.devices == nil {
+		return
+	}
+
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	for _, d := range i.devices.Devices() {
+		_ = i.devices.RemoveDevice(d.Description().Address)
+	}
+	i.switches = make(map[switchKey]*vdevices.DigitalChannel)
+	i.inputs = make(map[switchKey]*vdevices.DigitalChannel)
 }
 
 func (i *Integration) addDevice(d config.Device, eng *engine.Engine) {
@@ -138,6 +166,9 @@ func (i *Integration) syncLoop(ctx context.Context, eng *engine.Engine) {
 }
 
 func (i *Integration) syncStates(states []model.DeviceState) {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+
 	for _, ds := range states {
 		for _, rs := range ds.Registers {
 			if rs.Value.Quality != model.QualityGood {
