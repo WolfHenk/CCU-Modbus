@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -51,13 +52,60 @@ func Load(path string) (*Config, error) {
 	if err := json.Unmarshal(b, &c); err != nil {
 		return nil, err
 	}
+	ApplyDefaults(&c)
+	return &c, nil
+}
+
+func ApplyDefaults(c *Config) {
 	if c.Schema == 0 {
 		c.Schema = 1
 	}
 	if c.Listen == "" {
 		c.Listen = "127.0.0.1:18701"
 	}
-	return &c, nil
+	for i := range c.Devices {
+		if c.Devices[i].Port == 0 {
+			c.Devices[i].Port = 502
+		}
+		if c.Devices[i].TimeoutMS <= 0 {
+			c.Devices[i].TimeoutMS = 1500
+		}
+	}
+}
+
+func WriteAtomic(path string, c *Config) error {
+	ApplyDefaults(c)
+	if errs := Validate(c); len(errs) > 0 {
+		return errs[0]
+	}
+	b, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return err
+	}
+	b = append(b, '\n')
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	tmp := path + ".new"
+	if err := os.WriteFile(tmp, b, 0644); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(tmp, os.O_RDWR, 0644)
+	if err != nil {
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	if old, err := os.ReadFile(path); err == nil {
+		_ = os.WriteFile(path+".bak", old, 0644)
+	}
+	return os.Rename(tmp, path)
 }
 
 func (d Device) Timeout() time.Duration {
@@ -66,6 +114,31 @@ func (d Device) Timeout() time.Duration {
 		ms = 1500
 	}
 	return time.Duration(ms) * time.Millisecond
+}
+
+func Validate(c *Config) []error {
+	var out []error
+	ids := map[string]bool{}
+	for i, d := range c.Devices {
+		for _, err := range ValidateDevice(d) {
+			out = append(out, fmt.Errorf("Geraet %d: %w", i+1, err))
+		}
+		if ids[d.ID] {
+			out = append(out, fmt.Errorf("Geraete-ID %q ist doppelt", d.ID))
+		}
+		ids[d.ID] = true
+		rids := map[string]bool{}
+		for n, r := range d.Registers {
+			if err := ValidateRegister(r); err != nil {
+				out = append(out, fmt.Errorf("%s, Register %d: %w", d.Name, n+1, err))
+			}
+			if rids[r.ID] {
+				out = append(out, fmt.Errorf("%s: Register-ID %q ist doppelt", d.Name, r.ID))
+			}
+			rids[r.ID] = true
+		}
+	}
+	return out
 }
 
 func ValidateDevice(d Device) []error {
@@ -84,6 +157,12 @@ func ValidateDevice(d Device) []error {
 	}
 	if d.UnitID < 0 || d.UnitID > 255 {
 		out = append(out, fmt.Errorf("unit_id %d ist ungueltig", d.UnitID))
+	}
+	if d.TimeoutMS < 100 || d.TimeoutMS > 30000 {
+		out = append(out, fmt.Errorf("timeout_ms %d ist ungueltig", d.TimeoutMS))
+	}
+	if d.Retries < 0 || d.Retries > 2 {
+		out = append(out, fmt.Errorf("retries %d ist ungueltig", d.Retries))
 	}
 	return out
 }
@@ -107,6 +186,9 @@ func ValidateRegister(r Register) error {
 	}
 	if (r.Type == "coil" || r.Type == "discrete") && strings.ToLower(r.DataType) != "bool" {
 		return errors.New("coil/discrete erfordert datatype bool")
+	}
+	if r.PollSeconds < 1 || r.PollSeconds > 86400 {
+		return fmt.Errorf("poll_seconds %d ist ungueltig", r.PollSeconds)
 	}
 	return nil
 }

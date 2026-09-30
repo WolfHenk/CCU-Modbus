@@ -7,7 +7,7 @@ CONF=/usr/local/etc/config/addons/$ADDON
 WEBLINK=/usr/local/etc/config/addons/www/$ADDON
 RCD=/usr/local/etc/config/rc.d
 
-mkdir -p "$BASE/bin" "$BASE/www" "$CONF" /usr/local/etc/config/addons/www "$RCD"
+mkdir -p "$BASE/bin" "$BASE/www" "$BASE/lib" "$CONF" /usr/local/etc/config/addons/www "$RCD"
 
 ARCH="$(uname -m)"
 case "$ARCH" in
@@ -26,8 +26,11 @@ cp -f VERSION "$BASE/VERSION"
 cp -f rc.d/ccu-modbus "$RCD/ccu-modbus"
 chmod 755 "$RCD/ccu-modbus"
 
-rm -rf "$BASE/www"/*
+rm -rf "$BASE/www"/* "$BASE/lib"/*
 cp -af www/. "$BASE/www/"
+cp -af lib/. "$BASE/lib/"
+chmod 755 "$BASE/www/"*.cgi 2>/dev/null || true
+
 rm -rf "$WEBLINK"
 ln -s "$BASE/www" "$WEBLINK"
 
@@ -36,7 +39,7 @@ if [ ! -f "$CONF/config.json" ]; then
 fi
 
 touch /usr/local/etc/config/hm_addons.cfg
-"$BASE/bin/update_addon" ccu-modbus /addons/ccu-modbus/index.cgi CCU-Modbus "Modbus TCP Interface" "Modbus TCP interface"
+"$BASE/bin/update_addon" ccu-modbus /addons/ccu-modbus/index.cgi CCU-Modbus "Modbus TCP Interface" "Modbus TCP Interface"
 
 sync
 exit 0

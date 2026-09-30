@@ -43,7 +43,7 @@ case "$1" in
   info)
     echo "Name: CCU-Modbus"
     echo "Version: $(cat "$BASE/VERSION" 2>/dev/null)"
-    echo "Info: Modbus TCP Interface fuer CCU/OpenCCU"
+    echo "Info: <div style='text-align:center'><img src='/addons/ccu-modbus/img/modbus-logo.svg' style='max-width:170px;max-height:55px'><br><b>CCU-Modbus</b><br>Modbus TCP Interface fuer CCU/OpenCCU</div>"
     echo "Config-Url: /addons/ccu-modbus/index.cgi"
     echo "Operations: restart uninstall"
     ;;

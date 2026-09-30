@@ -1,71 +1,55 @@
 # CCU-Modbus
 
-CCU/OpenCCU-Add-on fuer ein einfaches, robustes Modbus-Interface.
+CCU/OpenCCU-Add-on für ein einfaches, robustes Modbus-Interface.
 
 ## Download
 
 Aktuelle Testversion:
 
-**[ccu-modbus-0.1.0-test2.tar.gz](releases/ccu-modbus-0.1.0-test2.tar.gz)**
+**[ccu-modbus-0.1.0-test3.tar.gz](releases/ccu-modbus-0.1.0-test3.tar.gz)**
 
 Die installierbare TAR.GZ-Datei wird nach einem erfolgreichen Build auf `main` direkt im Repository unter `releases/` abgelegt.
 
-## Stand
+## Stand 0.1.0-test3
 
-Aktueller Entwicklungsstand: **0.1.0-test2**
+### WebUI
 
-### Bereits vorhanden
+- Geräteübersicht mit Ampelstatus
+- Gerät hinzufügen, bearbeiten und löschen
+- Verbindungstest
+- Register hinzufügen, bearbeiten und löschen
+- Registertest mit Rohwert und berechnetem Wert
+- Faktor, Offset, Einheit und Pollingintervall
+- Byte-/Word-Swap unter „Erweitert“
+- atomisches Speichern mit Sicherung der letzten Konfiguration
+- WebUI bleibt beim Neustart des Daemons verfügbar
+- Modbus-Logo in Add-on-Liste und Einstellseite
 
-- eigener Go-Daemon ohne externe Laufzeitabhaengigkeiten
+### Modbus-Kern
+
 - Modbus TCP FC01, FC02, FC03 und FC04
 - BOOL, UINT16, INT16, UINT32, INT32 und FLOAT32
-- Faktor und Offset
-- Byte- und Word-Swap
 - harte TCP-Timeouts und begrenzte Retries
-- pro Modbus-Geraet ein eigener Worker
-- persistente TCP-Verbindung pro Geraet mit automatischem Reconnect
+- eigener Worker und persistente TCP-Verbindung pro Gerät
+- automatische Wiederverbindung
 - individuelle Pollingintervalle pro Register
-- Fehler einzelner Register werden lokal behandelt
-- lokaler Status-Endpunkt `/status`
-- CCU-Paketgeruest mit `update_script` und `rc.d`
+- Fehler einzelner Register bleiben lokal
+- lokaler Cache und Status-API
 
 ### Noch nicht vorhanden
 
-- CCU XML-RPC / virtuelle Geraete
-- komfortabler WebUI-Konfigurator
+- CCU XML-RPC / virtuelle Geräte
 - Schreibfunktionen
 - optimierte Blockabfragen
 - Online-Profilbibliothek
 - Modbus RTU/RS485
 
-## Architekturgrundsaetze
+## Architekturgrundsätze
 
-1. Kein externer Dienst ist fuer den Betrieb erforderlich.
+1. Kein externer Dienst ist für den Betrieb erforderlich.
 2. Kein CCU/RPC-Aufruf darf auf eine Modbus-Antwort warten.
-3. Ein Modbus-Geraet darf kein anderes Geraet blockieren.
+3. Ein Modbus-Gerät darf kein anderes Gerät blockieren.
 4. Ein fehlerhaftes Register darf den Daemon nicht beenden.
-5. Gueltige Geraete laufen trotz fehlerhafter Konfiguration anderer Geraete weiter.
-6. Schreibzugriffe sind standardmaessig deaktiviert.
+5. Gültige Geräte laufen trotz fehlerhafter Konfiguration anderer Geräte weiter.
+6. Schreibzugriffe sind standardmäßig deaktiviert.
 7. Persistente Daten liegen unter `/usr/local/etc/config/addons/ccu-modbus`.
-
-## Lokal testen
-
-```sh
-cp examples/config.json /tmp/ccu-modbus.json
-go run ./cmd/ccu-modbusd -config /tmp/ccu-modbus.json
-curl http://127.0.0.1:18701/status
-```
-
-Nur Konfiguration pruefen:
-
-```sh
-go run ./cmd/ccu-modbusd -config examples/config.json -check
-```
-
-## Paket bauen
-
-```sh
-make package
-```
-
-Erzeugt das CCU-Installationsarchiv fuer amd64, arm64 und armv7.
