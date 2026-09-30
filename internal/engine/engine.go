@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -20,9 +21,7 @@ type Engine struct {
 	cancel context.CancelFunc
 }
 
-func New() *Engine {
-	return &Engine{states: map[string]model.DeviceState{}}
-}
+func New() *Engine { return &Engine{states: map[string]model.DeviceState{}} }
 
 func (e *Engine) Start(parent context.Context, cfg *config.Config) {
 	ctx, cancel := context.WithCancel(parent)
@@ -59,23 +58,32 @@ func (e *Engine) setState(s model.DeviceState) {
 	e.mu.Unlock()
 }
 
-func (e *Engine) runDevice(ctx context.Context, d config.Device) {
-	state := model.DeviceState{
-		ID: d.ID, Name: d.Name, Host: d.Host, Port: d.Port,
-		UnitID: uint8(d.UnitID), State: "STARTING",
+func registerInterval(r config.Register) time.Duration {
+	sec := r.PollSeconds
+	if sec <= 0 {
+		sec = 10
 	}
+	if sec < 1 {
+		sec = 1
+	}
+	return time.Duration(sec) * time.Second
+}
 
-	for _, r := range d.Registers {
+func (e *Engine) runDevice(ctx context.Context, d config.Device) {
+	state := model.DeviceState{ID: d.ID, Name: d.Name, Host: d.Host, Port: d.Port, UnitID: uint8(d.UnitID), State: "STARTING"}
+	nextPoll := make([]time.Time, len(d.Registers))
+
+	now := time.Now()
+	for i, r := range d.Registers {
 		q := model.QualityDisabled
 		if r.Enabled {
 			q = model.QualityStale
+			nextPoll[i] = now
 		}
 		if err := config.ValidateRegister(r); err != nil {
 			q = model.QualityConfigError
 		}
-		state.Registers = append(state.Registers, model.RegisterState{
-			ID: r.ID, Name: r.Name, Value: model.Value{Quality: q},
-		})
+		state.Registers = append(state.Registers, model.RegisterState{ID: r.ID, Name: r.Name, Value: model.Value{Quality: q}})
 	}
 
 	if errs := config.ValidateDevice(d); len(errs) > 0 {
@@ -86,25 +94,34 @@ func (e *Engine) runDevice(ctx context.Context, d config.Device) {
 	}
 	e.setState(state)
 
-	interval := 10 * time.Second
-	for _, r := range d.Registers {
-		if r.Enabled && r.PollSeconds > 0 && time.Duration(r.PollSeconds)*time.Second < interval {
-			interval = time.Duration(r.PollSeconds) * time.Second
-		}
-	}
-	if interval < time.Second {
-		interval = time.Second
-	}
+	client := mb.NewClient(net.JoinHostPort(d.Host, fmt.Sprint(d.Port)), byte(d.UnitID), d.Timeout())
+	defer client.Close()
 
-	ticker := time.NewTicker(interval)
+	// 250 ms is only the local scheduler resolution. It does not generate
+	// Modbus traffic unless a register is due.
+	ticker := time.NewTicker(250 * time.Millisecond)
 	defer ticker.Stop()
 
 	for {
-		e.pollDevice(d, &state)
-		e.setState(state)
+		now = time.Now()
+		changed := false
+		for i, r := range d.Registers {
+			if !r.Enabled || nextPoll[i].IsZero() || now.Before(nextPoll[i]) {
+				continue
+			}
+			e.pollRegister(d, client, &state, i, r)
+			nextPoll[i] = now.Add(registerInterval(r))
+			changed = true
+		}
+		if changed {
+			recomputeDeviceState(&state)
+			e.setState(state)
+		}
+
 		select {
 		case <-ctx.Done():
 			state.State = "STOPPED"
+			state.Connected = false
 			e.setState(state)
 			return
 		case <-ticker.C:
@@ -112,95 +129,115 @@ func (e *Engine) runDevice(ctx context.Context, d config.Device) {
 	}
 }
 
-func (e *Engine) pollDevice(d config.Device, state *model.DeviceState) {
-	client := mb.Client{
-		Address: net.JoinHostPort(d.Host, fmt.Sprint(d.Port)),
-		UnitID:  byte(d.UnitID),
-		Timeout: d.Timeout(),
+func (e *Engine) pollRegister(d config.Device, client *mb.Client, state *model.DeviceState, i int, r config.Register) {
+	if err := config.ValidateRegister(r); err != nil {
+		state.Registers[i].Value = model.Value{Quality: model.QualityConfigError, Error: err.Error()}
+		return
 	}
 
-	allOK := true
-	anyOK := false
-
-	for i, r := range d.Registers {
-		if !r.Enabled {
-			continue
-		}
-		if err := config.ValidateRegister(r); err != nil {
-			state.Registers[i].Value = model.Value{Quality: model.QualityConfigError, Error: err.Error()}
-			allOK = false
-			continue
-		}
-
-		fc := byte(0)
-		switch r.Type {
-		case "coil":
-			fc = 1
-		case "discrete":
-			fc = 2
-		case "holding":
-			fc = 3
-		case "input":
-			fc = 4
-		}
-
-		var data []byte
-		var err error
-		tries := d.Retries + 1
-		if tries < 1 {
-			tries = 1
-		}
-		if tries > 3 {
-			tries = 3
-		}
-
-		for n := 0; n < tries; n++ {
-			data, err = client.Read(fc, r.Address, quantity(r))
-			if err == nil {
-				break
-			}
-		}
-
-		if err != nil {
-			state.Registers[i].Value = model.Value{Quality: model.QualityReadError, Error: humanError(err)}
-			state.ErrorCount++
-			state.LastError = humanError(err)
-			allOK = false
-			continue
-		}
-
-		raw, val, err := decode(r, data)
-		if err != nil {
-			state.Registers[i].Value = model.Value{Quality: model.QualityReadError, Error: err.Error()}
-			state.ErrorCount++
-			state.LastError = err.Error()
-			allOK = false
-			continue
-		}
-
-		now := time.Now()
-		state.Registers[i].Value = model.Value{
-			Raw: raw, Value: val, Timestamp: now, Quality: model.QualityGood,
-		}
-		state.LastSeen = &now
-		anyOK = true
+	fc := byte(0)
+	switch r.Type {
+	case "coil":
+		fc = 1
+	case "discrete":
+		fc = 2
+	case "holding":
+		fc = 3
+	case "input":
+		fc = 4
 	}
 
-	state.Connected = anyOK
+	tries := d.Retries + 1
+	if tries < 1 {
+		tries = 1
+	}
+	if tries > 3 {
+		tries = 3
+	}
+
+	var data []byte
+	var err error
+	for n := 0; n < tries; n++ {
+		data, err = client.Read(fc, r.Address, quantity(r))
+		if err == nil {
+			break
+		}
+		if n+1 < tries {
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+	if err != nil {
+		state.Registers[i].Value = model.Value{Quality: model.QualityReadError, Error: humanError(err)}
+		state.ErrorCount++
+		state.LastError = humanError(err)
+		return
+	}
+
+	raw, val, err := decode(r, data)
+	if err != nil {
+		state.Registers[i].Value = model.Value{Quality: model.QualityReadError, Error: err.Error()}
+		state.ErrorCount++
+		state.LastError = err.Error()
+		return
+	}
+
+	now := time.Now()
+	state.Registers[i].Value = model.Value{Raw: raw, Value: val, Timestamp: now, Quality: model.QualityGood}
+	state.LastSeen = &now
+}
+
+func recomputeDeviceState(state *model.DeviceState) {
+	anyGood := false
+	anyError := false
+	active := false
+
+	for _, r := range state.Registers {
+		switch r.Value.Quality {
+		case model.QualityGood:
+			anyGood = true
+			active = true
+		case model.QualityReadError, model.QualityConfigError:
+			anyError = true
+			active = true
+		case model.QualityStale:
+			active = true
+		}
+	}
+
+	state.Connected = anyGood
 	switch {
-	case allOK && anyOK:
+	case !active:
+		state.State = "IDLE"
+	case anyGood && anyError:
+		state.State = "DEGRADED"
+	case anyGood:
 		state.State = "ONLINE"
 		state.LastError = ""
-	case anyOK:
-		state.State = "DEGRADED"
-	default:
+	case anyError:
 		state.State = "OFFLINE"
+	default:
+		state.State = "STARTING"
 	}
 }
 
 func humanError(err error) string {
 	if ne, ok := err.(net.Error); ok && ne.Timeout() {
 		return "Zeitueberschreitung"
+	}
+	var ex *mb.ExceptionError
+	if errors.As(err, &ex) {
+		switch ex.Code {
+		case 1:
+			return "Funktion wird vom Geraet nicht unterstuetzt"
+		case 2:
+			return "Registeradresse wird vom Geraet nicht unterstuetzt"
+		case 3:
+			return "Ungueltiger Registerwert"
+		case 4:
+			return "Geraetefehler bei der Modbus-Anfrage"
+		default:
+			return fmt.Sprintf("Modbus-Ausnahme %d", ex.Code)
+		}
 	}
 	return err.Error()
 }
