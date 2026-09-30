@@ -63,13 +63,13 @@ if {$needPost} {
     set f [open $tmp w]
     puts -nonewline $f $body
     close $f
-    if {[catch {set result [exec /usr/bin/curl -sS --max-time 35 -H "Content-Type: application/json" -X POST --data-binary @$tmp "$base$endpoint"]} err]} {
+    if {[catch {set result [exec /usr/bin/env curl -sS --max-time 35 -H "Content-Type: application/json" -X POST --data-binary @$tmp "$base$endpoint"]} err]} {
         set result "{\"ok\":false,\"error\":\"Daemon nicht erreichbar\"}"
         set code 1
     }
     file delete -force $tmp
 } else {
-    if {[catch {set result [exec /usr/bin/curl -sS --max-time 5 "$base$endpoint"]} err]} {
+    if {[catch {set result [exec /usr/bin/env curl -sS --max-time 5 "$base$endpoint"]} err]} {
         set result "{\"ok\":false,\"error\":\"Daemon nicht erreichbar\"}"
         set code 1
     }
