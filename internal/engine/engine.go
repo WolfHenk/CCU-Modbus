@@ -15,13 +15,24 @@ import (
 	"github.com/WolfHenk/ccu-modbus/internal/model"
 )
 
-type Engine struct {
-	mu     sync.RWMutex
-	states map[string]model.DeviceState
-	cancel context.CancelFunc
+type writeRequest struct {
+	registerID string
+	value      bool
 }
 
-func New() *Engine { return &Engine{states: map[string]model.DeviceState{}} }
+type Engine struct {
+	mu      sync.RWMutex
+	states  map[string]model.DeviceState
+	writers map[string]chan writeRequest
+	cancel  context.CancelFunc
+}
+
+func New() *Engine {
+	return &Engine{
+		states:  map[string]model.DeviceState{},
+		writers: map[string]chan writeRequest{},
+	}
+}
 
 func (e *Engine) Start(parent context.Context, cfg *config.Config) {
 	ctx, cancel := context.WithCancel(parent)
@@ -31,13 +42,32 @@ func (e *Engine) Start(parent context.Context, cfg *config.Config) {
 		if !d.Enabled {
 			continue
 		}
-		go e.runDevice(ctx, d)
+		ch := make(chan writeRequest, 32)
+		e.mu.Lock()
+		e.writers[d.ID] = ch
+		e.mu.Unlock()
+		go e.runDevice(ctx, d, ch)
 	}
 }
 
 func (e *Engine) Stop() {
 	if e.cancel != nil {
 		e.cancel()
+	}
+}
+
+func (e *Engine) EnqueueCoil(deviceID, registerID string, value bool) bool {
+	e.mu.RLock()
+	ch := e.writers[deviceID]
+	e.mu.RUnlock()
+	if ch == nil {
+		return false
+	}
+	select {
+	case ch <- writeRequest{registerID: registerID, value: value}:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -69,7 +99,7 @@ func registerInterval(r config.Register) time.Duration {
 	return time.Duration(sec) * time.Second
 }
 
-func (e *Engine) runDevice(ctx context.Context, d config.Device) {
+func (e *Engine) runDevice(ctx context.Context, d config.Device, writes <-chan writeRequest) {
 	state := model.DeviceState{ID: d.ID, Name: d.Name, Host: d.Host, Port: d.Port, UnitID: uint8(d.UnitID), State: "STARTING"}
 	nextPoll := make([]time.Time, len(d.Registers))
 
@@ -124,9 +154,51 @@ func (e *Engine) runDevice(ctx context.Context, d config.Device) {
 			state.Connected = false
 			e.setState(state)
 			return
+		case wr := <-writes:
+			e.writeCoil(client, d, &state, wr)
+			recomputeDeviceState(&state)
+			e.setState(state)
 		case <-ticker.C:
 		}
 	}
+}
+
+func (e *Engine) writeCoil(client *mb.Client, d config.Device, state *model.DeviceState, wr writeRequest) {
+	idx := -1
+	var reg config.Register
+	for i, r := range d.Registers {
+		if r.ID == wr.registerID {
+			idx = i
+			reg = r
+			break
+		}
+	}
+	if idx < 0 {
+		state.LastError = "Unbekanntes Register fuer Schreibzugriff: " + wr.registerID
+		state.ErrorCount++
+		return
+	}
+	if !reg.Enabled || reg.Type != "coil" || reg.DataType != "bool" {
+		state.LastError = "Register ist nicht als schaltbarer Coil konfiguriert: " + reg.Name
+		state.ErrorCount++
+		return
+	}
+	if err := client.WriteSingleCoil(reg.Address, wr.value); err != nil {
+		state.Registers[idx].Value.Quality = model.QualityReadError
+		state.Registers[idx].Value.Error = humanError(err)
+		state.LastError = humanError(err)
+		state.ErrorCount++
+		return
+	}
+
+	now := time.Now()
+	state.Registers[idx].Value = model.Value{
+		Raw:       wr.value,
+		Value:     wr.value,
+		Timestamp: now,
+		Quality:   model.QualityGood,
+	}
+	state.LastSeen = &now
 }
 
 func (e *Engine) pollRegister(d config.Device, client *mb.Client, state *model.DeviceState, i int, r config.Register) {
