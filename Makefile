@@ -7,6 +7,7 @@ test:
 	go mod tidy
 	go test ./...
 	go vet ./...
+	node --check packaging/www/app.js
 
 build:
 	mkdir -p build/bin/linux-amd64 build/bin/linux-arm64 build/bin/linux-arm
