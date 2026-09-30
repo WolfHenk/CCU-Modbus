@@ -68,6 +68,18 @@ func (i *Integration) Close() {
 	if i.cancel != nil {
 		i.cancel()
 	}
+
+	// Remove our virtual devices while the XML-RPC servants are still alive.
+	// This makes ReGa forget deleted devices on config restart and all devices
+	// on add-on uninstall instead of leaving stale CCU objects behind.
+	if i.devices != nil {
+		for _, d := range i.devices.Devices() {
+			_ = i.devices.RemoveDevice(d.Description().Address)
+		}
+		// Synchronization is asynchronous in go-hmccu. Give deleteDevices a
+		// short bounded window before closing the servants.
+		time.Sleep(750 * time.Millisecond)
+	}
 	if i.handler != nil {
 		i.handler.Close()
 	}
@@ -78,11 +90,9 @@ func (i *Integration) Close() {
 
 func (i *Integration) addDevice(d config.Device, eng *engine.Engine) {
 	addr := deviceAddress(d)
-	devType := "CCU-MODBUS"
-	if n := cleanToken(d.Name); n != "" {
-		devType += "-" + n
-	}
-	dev := vdevices.NewDevice(addr, devType, i.handler)
+	// The CCU device class is intentionally independent of vendor/model.
+	// The configurable instance name and channel layout are separate concerns.
+	dev := vdevices.NewDevice(addr, "ModBus", i.handler)
 	vdevices.NewMaintenanceChannel(dev)
 
 	for _, r := range d.Registers {
