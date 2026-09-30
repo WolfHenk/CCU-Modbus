@@ -6,11 +6,11 @@ CCU/OpenCCU-Add-on für ein einfaches, robustes Modbus-Interface.
 
 Aktuelle Testversion:
 
-**[ccu-modbus-0.1.0-test5.tar.gz](releases/ccu-modbus-0.1.0-test5.tar.gz)**
+**[ccu-modbus-0.1.0-test10.tar.gz](releases/ccu-modbus-0.1.0-test10.tar.gz)**
 
 Die installierbare TAR.GZ-Datei wird nach einem erfolgreichen Build auf `main` direkt im Repository unter `releases/` abgelegt.
 
-## Stand 0.1.0-test5
+## Stand 0.1.0-test10
 
 Korrektur gegenüber test4:
 - URL-Decodierung für CCU-Session-IDs im CGI ergänzt
@@ -60,3 +60,15 @@ Für die Darstellung wird das vom Projekt gewünschte Modbus-Logo verwendet: htt
 ## Direkter Download
 
 Der CCU-Button **Herunterladen** verweist direkt auf `releases/ccu-modbus-latest.tar.gz`. Diese Datei wird bei jedem erfolgreichen Build aktualisiert und soll vom Browser unmittelbar als TAR.GZ heruntergeladen werden.
+
+
+## Virtuelle CCU-Geräte
+
+Ab test10 stellt CCU-Modbus konfigurierte Modbus-Geräte über eine eigene XML-RPC-Schnittstelle als virtuelle CCU-Geräte bereit.
+
+- Gerätetyp: `CCU-MODBUS-...`
+- Kanal 0: Wartungs-/Statuskanal
+- konfigurierte BOOL-Coils: CCU-Schaltkanäle mit `STATE`
+- CCU-Schaltbefehle werden nur in die Geräte-Worker-Warteschlange gelegt; der CCU-RPC-Aufruf wartet niemals auf Modbus
+- Rückmeldungen kommen aus dem lokalen Polling-Cache
+- erste Registrierung der Schnittstelle erfordert einmalig einen Neustart, damit ReGaHss die neue `InterfacesList.xml` einliest
