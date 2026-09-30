@@ -39,8 +39,9 @@ type Register struct {
 	Offset      float64 `json:"offset"`
 	ByteSwap    bool    `json:"byte_swap"`
 	WordSwap    bool    `json:"word_swap"`
-	PollSeconds int     `json:"poll_seconds"`
-	Unit        string  `json:"unit"`
+	PollSeconds  int     `json:"poll_seconds"`
+	Unit         string  `json:"unit"`
+	TrueMeansOpen bool   `json:"true_means_open,omitempty"`
 }
 
 func Load(path string) (*Config, error) {
