@@ -3,19 +3,30 @@ set -eu
 
 MODE="${1:-install}"
 TARGET=/www/config/devdescr/DEVDB.tcl
+JS_TARGET=/www/devdescr.js
 BASE=/usr/local/addons/ccu-modbus/devdescr
 OVERLAY=$BASE/DEVDB.tcl
+JS_OVERLAY=$BASE/devdescr.js
 
 mkdir -p "$BASE"
 
 is_ours_mounted() {
-  grep -F " $TARGET " /proc/mounts 2>/dev/null | grep -F "$OVERLAY" >/dev/null 2>&1
+  _target="$1"
+  _overlay="$2"
+  grep -F " $_target " /proc/mounts 2>/dev/null | grep -F "$_overlay" >/dev/null 2>&1
+}
+
+unmount_one() {
+  _target="$1"
+  _overlay="$2"
+  if is_ours_mounted "$_target" "$_overlay"; then
+    umount "$_target" 2>/dev/null || true
+  fi
 }
 
 unmount_ours() {
-  if is_ours_mounted; then
-    umount "$TARGET" 2>/dev/null || true
-  fi
+  unmount_one "$JS_TARGET" "$JS_OVERLAY"
+  unmount_one "$TARGET" "$OVERLAY"
 }
 
 case "$MODE" in
@@ -49,6 +60,27 @@ close $f
 TCL
 
     mount -o bind "$OVERLAY" "$TARGET"
+
+    # The current OpenCCU WebUI loads the generated /www/devdescr.js directly.
+    # DEVDB.tcl alone is therefore not enough for a device picture in the
+    # native device list. Overlay a derived JS copy as well, without touching
+    # the read-only original.
+    if [ -f "$JS_TARGET" ]; then
+      cp -f "$JS_TARGET" "$JS_OVERLAY"
+      cat >>"$JS_OVERLAY" <<'JS'
+
+// CCU-Modbus runtime device description
+if (typeof DEV_LIST !== "undefined" && DEV_LIST.indexOf("ModBus") < 0) DEV_LIST.push("ModBus");
+if (typeof DEV_DESCRIPTION !== "undefined") DEV_DESCRIPTION["ModBus"] = "ModBus";
+if (typeof DEV_PATHS !== "undefined") {
+  DEV_PATHS["ModBus"] = new Object();
+  DEV_PATHS["ModBus"]["50"] = "/addons/ccu-modbus/img/modbus-logo.png";
+  DEV_PATHS["ModBus"]["250"] = "/addons/ccu-modbus/img/modbus-logo.png";
+}
+if (typeof DEV_HIGHLIGHT !== "undefined") DEV_HIGHLIGHT["ModBus"] = new Object();
+JS
+      mount -o bind "$JS_OVERLAY" "$JS_TARGET"
+    fi
     ;;
 
   remove)
