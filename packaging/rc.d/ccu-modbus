@@ -62,6 +62,7 @@ stop_daemon() {
 
 case "$1" in
   init)
+    start_daemon
     ;;
   start|"")
     start_daemon
