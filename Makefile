@@ -16,6 +16,8 @@ build:
 package: test build
 	rm -rf build/pkg && mkdir -p build/pkg/bin build/pkg/rc.d build/pkg/www build/pkg/examples
 	cp -a build/bin/* build/pkg/bin/
+	cp packaging/bin/update_addon build/pkg/bin/update_addon
+	chmod 755 build/pkg/bin/update_addon
 	cp packaging/update_script build/pkg/
 	cp packaging/rc.d/ccu-modbus build/pkg/rc.d/
 	cp packaging/www/* build/pkg/www/
