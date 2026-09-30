@@ -2,11 +2,17 @@
 
 CCU/OpenCCU-Add-on fuer ein einfaches, robustes Modbus-Interface.
 
+## Download
+
+Aktuelle Testversion:
+
+**[ccu-modbus-0.1.0-test2.tar.gz](releases/ccu-modbus-0.1.0-test2.tar.gz)**
+
+Die installierbare TAR.GZ-Datei wird nach einem erfolgreichen Build auf `main` direkt im Repository unter `releases/` abgelegt.
+
 ## Stand
 
-Aktueller Entwicklungsstand: **0.1.0-test1**
-
-Der erste Teststand konzentriert sich bewusst auf einen kleinen, stabilen Modbus-TCP-Kern.
+Aktueller Entwicklungsstand: **0.1.0-test2**
 
 ### Bereits vorhanden
 
@@ -17,6 +23,8 @@ Der erste Teststand konzentriert sich bewusst auf einen kleinen, stabilen Modbus
 - Byte- und Word-Swap
 - harte TCP-Timeouts und begrenzte Retries
 - pro Modbus-Geraet ein eigener Worker
+- persistente TCP-Verbindung pro Geraet mit automatischem Reconnect
+- individuelle Pollingintervalle pro Register
 - Fehler einzelner Register werden lokal behandelt
 - lokaler Status-Endpunkt `/status`
 - CCU-Paketgeruest mit `update_script` und `rc.d`
@@ -44,7 +52,6 @@ Der erste Teststand konzentriert sich bewusst auf einen kleinen, stabilen Modbus
 
 ```sh
 cp examples/config.json /tmp/ccu-modbus.json
-# Host/Register anpassen und enabled=true setzen
 go run ./cmd/ccu-modbusd -config /tmp/ccu-modbus.json
 curl http://127.0.0.1:18701/status
 ```
@@ -61,4 +68,4 @@ go run ./cmd/ccu-modbusd -config examples/config.json -check
 make package
 ```
 
-Erzeugt ein CCU-Installationsarchiv fuer amd64, arm64 und armv7.
+Erzeugt das CCU-Installationsarchiv fuer amd64, arm64 und armv7.
