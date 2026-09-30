@@ -42,6 +42,8 @@ type Register struct {
 	PollSeconds  int     `json:"poll_seconds"`
 	Unit         string  `json:"unit"`
 	TrueMeansOpen bool   `json:"true_means_open,omitempty"`
+	RoomID        int    `json:"room_id,omitempty"`
+	FunctionID    int    `json:"function_id,omitempty"`
 }
 
 func Load(path string) (*Config, error) {
@@ -190,6 +192,12 @@ func ValidateRegister(r Register) error {
 	}
 	if r.PollSeconds < 1 || r.PollSeconds > 86400 {
 		return fmt.Errorf("poll_seconds %d ist ungueltig", r.PollSeconds)
+	}
+	if r.RoomID < 0 {
+		return fmt.Errorf("room_id %d ist ungueltig", r.RoomID)
+	}
+	if r.FunctionID < 0 {
+		return fmt.Errorf("function_id %d ist ungueltig", r.FunctionID)
 	}
 	return nil
 }
