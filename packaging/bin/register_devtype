@@ -1,42 +1,64 @@
 #!/bin/sh
 set -eu
-MODE="${1:-install}"
-DB=/www/config/devdescr/DEVDB.tcl
-[ -f "$DB" ] || exit 0
 
-MODE="$MODE" DB="$DB" /usr/bin/tclsh <<'TCL'
-set mode $::env(MODE)
-set db $::env(DB)
-source $db
+MODE="${1:-install}"
+TARGET=/www/config/devdescr/DEVDB.tcl
+BASE=/usr/local/addons/ccu-modbus/devdescr
+OVERLAY=$BASE/DEVDB.tcl
+
+mkdir -p "$BASE"
+
+is_ours_mounted() {
+  grep -F " $TARGET " /proc/mounts 2>/dev/null | grep -F "$OVERLAY" >/dev/null 2>&1
+}
+
+unmount_ours() {
+  if is_ours_mounted; then
+    umount "$TARGET" 2>/dev/null || true
+  fi
+}
+
+case "$MODE" in
+  install)
+    # Never change the CCU's read-only file. Build our own derived copy on
+    # /usr/local and bind-mount it over the generated DEVDB at runtime.
+    unmount_ours
+    [ -f "$TARGET" ] || exit 0
+
+    TARGET="$TARGET" OVERLAY="$OVERLAY" /usr/bin/tclsh <<'TCL'
+set src $::env(TARGET)
+set dst $::env(OVERLAY)
+source $src
 
 set type "ModBus"
 set path "/addons/ccu-modbus/img/modbus-logo.png"
 
-if {$mode eq "install"} {
-    if {[lsearch -exact $DEV_LIST $type] < 0} {
-        lappend DEV_LIST $type
-    }
-    set DEV_DESCRIPTION($type) "ModBus"
-    set DEV_PATHS($type) [list [list 50 $path] [list 250 $path]]
-    set DEV_HIGHLIGHT($type) {}
-} elseif {$mode eq "remove"} {
-    set idx [lsearch -exact $DEV_LIST $type]
-    if {$idx >= 0} {
-        set DEV_LIST [lreplace $DEV_LIST $idx $idx]
-    }
-    catch {unset DEV_DESCRIPTION($type)}
-    catch {unset DEV_PATHS($type)}
-    catch {unset DEV_HIGHLIGHT($type)}
-} else {
-    exit 2
+if {[lsearch -exact $DEV_LIST $type] < 0} {
+    lappend DEV_LIST $type
 }
+set DEV_DESCRIPTION($type) "ModBus"
+set DEV_PATHS($type) [list [list 50 $path] [list 250 $path]]
+set DEV_HIGHLIGHT($type) {}
 
-set tmp "$db.ccu-modbus.[pid]"
-set f [open $tmp w]
+set f [open $dst w]
 puts $f "set DEV_LIST [list $DEV_LIST]"
 puts $f "array set DEV_DESCRIPTION [list [array get DEV_DESCRIPTION]]"
 puts $f "array set DEV_PATHS [list [array get DEV_PATHS]]"
 puts $f "array set DEV_HIGHLIGHT [list [array get DEV_HIGHLIGHT]]"
 close $f
-file rename -force $tmp $db
 TCL
+
+    mount -o bind "$OVERLAY" "$TARGET"
+    ;;
+
+  remove)
+    # Removing the bind mount instantly exposes the untouched CCU file again.
+    unmount_ours
+    rm -rf "$BASE"
+    ;;
+
+  *)
+    echo "Usage: $0 {install|remove}" >&2
+    exit 2
+    ;;
+esac
