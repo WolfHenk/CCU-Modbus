@@ -97,6 +97,7 @@ func (i *Integration) ReplaceConfig(cfg *config.Config, eng *engine.Engine) {
 	for _, d := range cfg.Devices {
 		i.addDevice(d, eng)
 	}
+	time.Sleep(500 * time.Millisecond)
 }
 
 // RemoveAll unregisters all virtual ModBus devices while ReGa is connected.
@@ -114,6 +115,7 @@ func (i *Integration) RemoveAll() {
 	}
 	i.switches = make(map[switchKey]*vdevices.DigitalChannel)
 	i.inputs = make(map[switchKey]*vdevices.DigitalChannel)
+	time.Sleep(500 * time.Millisecond)
 }
 
 func (i *Integration) addDevice(d config.Device, eng *engine.Engine) {
