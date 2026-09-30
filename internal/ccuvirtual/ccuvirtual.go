@@ -355,10 +355,10 @@ func latin1(b []byte) string {
 
 func regaQuote(s string) string {
 	s = strings.ReplaceAll(s, "\\", "\\\\")
-	s = strings.ReplaceAll(s, """, "\\"")
+	s = strings.ReplaceAll(s, "\"", "\\\"")
 	s = strings.ReplaceAll(s, "\r", " ")
 	s = strings.ReplaceAll(s, "\n", " ")
-	return """ + s + """
+	return "\"" + s + "\""
 }
 
 func deviceAddress(d config.Device) string {
