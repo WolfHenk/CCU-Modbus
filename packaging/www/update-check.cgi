@@ -10,7 +10,7 @@
 # leads the logged-in browser to the repository download folder.
 
 set checkURL    "https://raw.githubusercontent.com/WolfHenk/CCU-Modbus/main/VERSION"
-set downloadURL "https://github.com/WolfHenk/CCU-Modbus/tree/main/releases"
+set downloadURL "https://github.com/WolfHenk/CCU-Modbus/raw/refs/heads/main/releases/ccu-modbus-latest.tar.gz"
 
 set cmd ""
 if {[info exists env(QUERY_STRING)]} {
