@@ -6,11 +6,17 @@ CCU/OpenCCU-Add-on für ein einfaches, robustes Modbus-Interface.
 
 Aktuelle Testversion:
 
-**[ccu-modbus-0.1.0-test4.tar.gz](releases/ccu-modbus-0.1.0-test4.tar.gz)**
+**[ccu-modbus-0.1.0-test5.tar.gz](releases/ccu-modbus-0.1.0-test5.tar.gz)**
 
 Die installierbare TAR.GZ-Datei wird nach einem erfolgreichen Build auf `main` direkt im Repository unter `releases/` abgelegt.
 
-## Zusatzsoftware-Darstellung
+## Stand 0.1.0-test5
+
+Korrektur gegenüber test4:
+- URL-Decodierung für CCU-Session-IDs im CGI ergänzt
+- damit funktionieren „Verbindung testen“, „Wert testen“ und Speichern auch bei als `%40...%40` übertragenen Session-IDs
+
+### Zusatzsoftware-Darstellung
 
 CCU-Modbus nutzt die normale CCU/OpenCCU-Zusatzsoftware-Mechanik:
 
@@ -21,18 +27,6 @@ CCU-Modbus nutzt die normale CCU/OpenCCU-Zusatzsoftware-Mechanik:
 - **Neustart**
 - **Deinstallieren**
 - **Einstellen**
-
-Die Schaltflächen entstehen über die Standardfelder des `rc.d ... info`-Aufrufs:
-
-- `Version:`
-- `Info:`
-- `Update:`
-- `Operations:`
-- `Config-Url:`
-
-Hinweis: Solange dieses Repository privat ist, kann die CCU GitHub ohne Zugangsdaten nicht selbst nach der neuesten Version fragen. Dann zeigt der automatische Versionscheck `n/a`. Der Mechanismus ist bereits vollständig eingebaut und funktioniert automatisch, sobald die Downloadquelle öffentlich erreichbar ist.
-
-## Stand 0.1.0-test4
 
 ### WebUI
 
@@ -45,7 +39,6 @@ Hinweis: Solange dieses Repository privat ist, kann die CCU GitHub ohne Zugangsd
 - Byte-/Word-Swap unter „Erweitert“
 - atomisches Speichern mit Sicherung der letzten Konfiguration
 - WebUI bleibt beim Neustart des Daemons verfügbar
-- Modbus-Logo in Add-on-Liste und Einstellseite
 
 ### Modbus-Kern
 
@@ -57,11 +50,3 @@ Hinweis: Solange dieses Repository privat ist, kann die CCU GitHub ohne Zugangsd
 - individuelle Pollingintervalle pro Register
 - Fehler einzelner Register bleiben lokal
 - lokaler Cache und Status-API
-
-### Noch nicht vorhanden
-
-- CCU XML-RPC / virtuelle Geräte
-- Schreibfunktionen
-- optimierte Blockabfragen
-- Online-Profilbibliothek
-- Modbus RTU/RS485
