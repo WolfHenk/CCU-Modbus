@@ -8,6 +8,8 @@ CONF=$CONFROOT/addons/$ADDON
 WEBLINK=$CONFROOT/addons/www/$ADDON
 RCD=$CONFROOT/rc.d
 EXITCODE=10
+NEW_INTERFACE=0
+INTERFACES=/etc/config/InterfacesList.xml
 
 mount | grep /usr/local >/dev/null 2>&1
 if [ $? -eq 1 ]; then
@@ -52,10 +54,33 @@ if [ ! -f "$CONF/config.json" ]; then
   cp -f examples/config.json "$CONF/config.json"
 fi
 
+# Register the device interface once. ReGaHss reads InterfacesList.xml at
+# startup, therefore the first installation of this interface requires a reboot.
+if [ -f "$INTERFACES" ] && ! grep -q "<name>CCU-Modbus</name>" "$INTERFACES"; then
+  TMP="$INTERFACES.ccu-modbus.$"
+  awk '
+    /<\/interfaces>/ {
+      print "\t<ipc>"
+      print "\t \t<name>CCU-Modbus</name>"
+      print "\t \t<url>xmlrpc://127.0.0.1:18701/RPC3</url>"
+      print "\t \t<info>CCU-Modbus</info>"
+      print "\t</ipc>"
+    }
+    { print }
+  ' "$INTERFACES" > "$TMP" && cat "$TMP" > "$INTERFACES"
+  rm -f "$TMP"
+  NEW_INTERFACE=1
+fi
+
 touch "$CONFROOT/hm_addons.cfg"
 "$BASE/bin/update_addon" ccu-modbus /addons/ccu-modbus/index.cgi CCU-Modbus "Modbus TCP Interface" "Modbus TCP Interface"
 
 sync
+
+if [ $NEW_INTERFACE -eq 1 ]; then
+  sync
+  exit 10
+fi
 
 if [ $EXITCODE -eq 0 ] && [ ! -f /etc/init.d/S00InstallAddon ]; then
   cd /
