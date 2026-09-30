@@ -151,7 +151,8 @@ case "$1" in
     echo "Update: /addons/ccu-modbus/update-check.cgi"
     ;;
   uninstall)
-    # stop_daemon lets ccu-modbusd unregister all of its virtual devices first.
+    # Explicitly unregister all virtual devices while ReGa is still connected.
+    /usr/bin/curl -sS --max-time 3 -X POST http://127.0.0.1:18701/unregister-all >/dev/null 2>&1 || true
     stop_daemon
     if [ -x "$BASE/bin/register_devtype" ]; then
       "$BASE/bin/register_devtype" remove >/dev/null 2>&1 || true
