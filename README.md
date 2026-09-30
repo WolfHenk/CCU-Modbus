@@ -72,3 +72,8 @@ Ab test10 stellt CCU-Modbus konfigurierte Modbus-Geräte über eine eigene XML-R
 - CCU-Schaltbefehle werden nur in die Geräte-Worker-Warteschlange gelegt; der CCU-RPC-Aufruf wartet niemals auf Modbus
 - Rückmeldungen kommen aus dem lokalen Polling-Cache
 - erste Registrierung der Schnittstelle erfordert einmalig einen Neustart, damit ReGaHss die neue `InterfacesList.xml` einliest
+
+
+## Lizenz
+
+BSD-2-Clause — Copyright (c) 2026 Wolfram Henkel. Weiterverarbeitung und Weitergabe sind erlaubt, sofern Copyright- und Lizenzhinweis erhalten bleiben.
