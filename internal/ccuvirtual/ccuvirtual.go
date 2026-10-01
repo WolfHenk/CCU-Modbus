@@ -36,10 +36,12 @@ type Integration struct {
 	handler *vdevices.Handler
 	devices *vdevices.Container
 
-	mu                 sync.RWMutex
-	switches           map[switchKey]*vdevices.DigitalChannel
-	inputs             map[switchKey]*vdevices.DigitalChannel
-	current            *config.Config
+	mu          sync.RWMutex
+	switches    map[switchKey]*vdevices.DigitalChannel
+	inputs      map[switchKey]*vdevices.DigitalChannel
+	stateSynced map[switchKey]bool
+	regaReady   bool
+	current     *config.Config
 
 	cancel context.CancelFunc
 }
@@ -55,12 +57,14 @@ func Attach(parent context.Context, mux *http.ServeMux, cfg *config.Config, eng 
 	mux.Handle(RPCPath, &xmlrpc.Handler{Dispatcher: dispatcher})
 
 	in := &Integration{
-		handler:            h,
-		devices:            vd,
-		switches:           make(map[switchKey]*vdevices.DigitalChannel),
-		inputs:             make(map[switchKey]*vdevices.DigitalChannel),
-		current:            cfg,
-		cancel:             cancel,
+		handler:     h,
+		devices:     vd,
+		switches:    make(map[switchKey]*vdevices.DigitalChannel),
+		inputs:      make(map[switchKey]*vdevices.DigitalChannel),
+		stateSynced: make(map[switchKey]bool),
+		regaReady:   false,
+		current:     cfg,
+		cancel:      cancel,
 	}
 
 	for _, d := range cfg.Devices {
@@ -87,6 +91,9 @@ func (i *Integration) connectReGa(ctx context.Context, cfg *config.Config) {
 			_ = i.migrateDigitalInputTypes(id)
 
 			if err := i.handler.Init("xmlrpc_bin://127.0.0.1:31999", id); err == nil {
+				i.mu.Lock()
+				i.regaReady = true
+				i.mu.Unlock()
 				time.Sleep(800 * time.Millisecond)
 				_ = ApplyMetadata(cfg)
 				return
@@ -240,6 +247,7 @@ func (i *Integration) RemoveAll() {
 	i.handler.Synchronize()
 	i.switches = make(map[switchKey]*vdevices.DigitalChannel)
 	i.inputs = make(map[switchKey]*vdevices.DigitalChannel)
+	i.stateSynced = make(map[switchKey]bool)
 	time.Sleep(800 * time.Millisecond)
 }
 
@@ -293,8 +301,12 @@ func (i *Integration) syncLoop(ctx context.Context, eng *engine.Engine) {
 }
 
 func (i *Integration) syncStates(states []model.DeviceState) {
-	i.mu.RLock()
-	defer i.mu.RUnlock()
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	if !i.regaReady {
+		return
+	}
 
 	for _, ds := range states {
 		for _, rs := range ds.Registers {
@@ -308,14 +320,16 @@ func (i *Integration) syncStates(states []model.DeviceState) {
 
 			key := switchKey{deviceID: ds.ID, registerID: rs.ID}
 			if ch := i.switches[key]; ch != nil {
-				if ch.State() != v {
+				if !i.stateSynced[key] || ch.State() != v {
 					ch.SetState(v)
+					i.stateSynced[key] = true
 				}
 				continue
 			}
 			if ch := i.inputs[key]; ch != nil {
-				if ch.State() != v {
+				if !i.stateSynced[key] || ch.State() != v {
 					ch.SetState(v)
+					i.stateSynced[key] = true
 				}
 			}
 		}
