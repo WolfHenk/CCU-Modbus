@@ -38,13 +38,14 @@ set dst $::env(OVERLAY)
 source $src
 
 set type "ModBus"
-set path "/addons/ccu-modbus/img/modbus-logo.png"
+set path50 "/addons/ccu-modbus/img/modbus-logo-50.png"
+set path250 "/addons/ccu-modbus/img/modbus-logo-250.png"
 
 if {[lsearch -exact $DEV_LIST $type] < 0} {
     lappend DEV_LIST $type
 }
 set DEV_DESCRIPTION($type) "Modbus-Gerät"
-set DEV_PATHS($type) [list [list 50 $path] [list 250 $path]]
+set DEV_PATHS($type) [list [list 50 $path50] [list 250 $path250]]
 set DEV_HIGHLIGHT($type) {}
 
 set f [open $dst w]
@@ -70,8 +71,8 @@ if (typeof DEV_LIST !== "undefined" && DEV_LIST.indexOf("ModBus") < 0) DEV_LIST.
 if (typeof DEV_DESCRIPTION !== "undefined") DEV_DESCRIPTION["ModBus"] = "Modbus-Gerät";
 if (typeof DEV_PATHS !== "undefined") {
   DEV_PATHS["ModBus"] = new Object();
-  DEV_PATHS["ModBus"]["50"] = "/addons/ccu-modbus/img/modbus-logo.png";
-  DEV_PATHS["ModBus"]["250"] = "/addons/ccu-modbus/img/modbus-logo.png";
+  DEV_PATHS["ModBus"]["50"] = "/addons/ccu-modbus/img/modbus-logo-50.png";
+  DEV_PATHS["ModBus"]["250"] = "/addons/ccu-modbus/img/modbus-logo-250.png";
 }
 if (typeof DEV_HIGHLIGHT !== "undefined") DEV_HIGHLIGHT["ModBus"] = new Object();
 JS
@@ -91,8 +92,8 @@ JS
           print "if (typeof DEV_DESCRIPTION !== \"undefined\") DEV_DESCRIPTION[\"ModBus\"] = \"Modbus-Ger\\u00e4t\";"
           print "if (typeof DEV_PATHS !== \"undefined\") {"
           print "  DEV_PATHS[\"ModBus\"] = new Object();"
-          print "  DEV_PATHS[\"ModBus\"][\"50\"] = \"/addons/ccu-modbus/img/modbus-logo.png\";"
-          print "  DEV_PATHS[\"ModBus\"][\"250\"] = \"/addons/ccu-modbus/img/modbus-logo.png\";"
+          print "  DEV_PATHS[\"ModBus\"][\"50\"] = \"/addons/ccu-modbus/img/modbus-logo-50.png\";"
+          print "  DEV_PATHS[\"ModBus\"][\"250\"] = \"/addons/ccu-modbus/img/modbus-logo-250.png\";"
           print "}"
           print "if (typeof DEV_HIGHLIGHT !== \"undefined\") DEV_HIGHLIGHT[\"ModBus\"] = new Object();"
         }
