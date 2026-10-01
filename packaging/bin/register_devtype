@@ -4,28 +4,29 @@ set -eu
 MODE="${1:-install}"
 TARGET=/www/config/devdescr/DEVDB.tcl
 JS_TARGET=/www/devdescr.js
-DP_TARGET=/www/rega/esp/datapointconfigurator.fn
 BASE=/usr/local/addons/ccu-modbus/devdescr
 OVERLAY=$BASE/DEVDB.tcl
 JS_OVERLAY=$BASE/devdescr.js
-DP_OVERLAY=$BASE/datapointconfigurator.fn
 
 mkdir -p "$BASE"
 
+is_ours_mounted() {
+  _target="$1"
+  _overlay="$2"
+  grep -F " $_target " /proc/mounts 2>/dev/null | grep -F "$_overlay" >/dev/null 2>&1
+}
+
 unmount_one() {
   _target="$1"
-  # Bind mounts of files are reported in /proc/mounts with the backing device
-  # rather than the source filename. Therefore unmount by target path and peel
-  # off all stacked mounts that our repeated installs may have created.
-  while grep -F " $_target " /proc/mounts >/dev/null 2>&1; do
-    umount "$_target" 2>/dev/null || break
-  done
+  _overlay="$2"
+  if is_ours_mounted "$_target" "$_overlay"; then
+    umount "$_target" 2>/dev/null || true
+  fi
 }
 
 unmount_ours() {
-  unmount_one "$DP_TARGET"
-  unmount_one "$JS_TARGET"
-  unmount_one "$TARGET"
+  unmount_one "$JS_TARGET" "$JS_OVERLAY"
+  unmount_one "$TARGET" "$OVERLAY"
 }
 
 case "$MODE" in
@@ -79,32 +80,6 @@ if (typeof DEV_PATHS !== "undefined") {
 if (typeof DEV_HIGHLIGHT !== "undefined") DEV_HIGHLIGHT["ModBus"] = new Object();
 JS
       mount -o bind "$JS_OVERLAY" "$JS_TARGET"
-    fi
-
-    # OpenCCU has no native status renderer for DIGITAL_INPUT.STATE. Older
-    # migrated channels may additionally retain DOOR_SENSOR.STATE metadata in
-    # ReGa. Overlay the dispatcher and handle DIGITAL_INPUT explicitly before
-    # the generic control-name dispatch runs. The original CCU file remains
-    # untouched and is revealed again when the addon is removed.
-    if [ -f "$DP_TARGET" ]; then
-      TMP_DP="$DP_OVERLAY.tmp.$$"
-      awk '
-        { print }
-        !inserted && /object ch = dom.GetObject\(chnId\);/ {
-          inserted=1
-          print "          if ((oDevice.HssType() == \"ModBus\") && (sControlName.Find(CN_DOOR_SENSOR) > -1)) {"
-          print "            string ccuModbusDigitalInputState = \"LOW\";"
-          print "            if (oE.Value() == true) { ccuModbusDigitalInputState = \"HIGH\"; }"
-          print "            WriteLine(\"<td><div class=\x27ControlBtnInfo CLASS02532a\x27 style=\x27text-align:center; min-width:110px; height:35px; line-height:35px; font-weight:bold;\x27>\"#ccuModbusDigitalInputState#\"</div></td>\");"
-          print "            isKnownControl = true;"
-          print "            sLastControlName = \"CCU_MODBUS_DIGITAL_INPUT.\";"
-          print "            sControlName = \"CCU_MODBUS_DIGITAL_INPUT.\";"
-          print "          }"
-        }
-      ' "$DP_TARGET" > "$TMP_DP"
-      [ -s "$TMP_DP" ] || { rm -f "$TMP_DP"; exit 1; }
-      mv -f "$TMP_DP" "$DP_OVERLAY"
-      mount -o bind "$DP_OVERLAY" "$DP_TARGET"
     fi
     ;;
 

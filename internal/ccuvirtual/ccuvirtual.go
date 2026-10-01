@@ -89,6 +89,7 @@ func (i *Integration) connectReGa(ctx context.Context, cfg *config.Config) {
 			// deleting/recreating the channel. Failure here is non-fatal: Modbus
 			// operation must not depend on a presentation migration.
 			_ = i.migrateDigitalInputTypes(id)
+			_ = i.migrateDigitalInputControls(cfg)
 
 			if err := i.handler.Init("xmlrpc_bin://127.0.0.1:31999", id); err == nil {
 				i.mu.Lock()
@@ -140,6 +141,16 @@ func (i *Integration) migrateDigitalInputTypes(interfaceID string) error {
 		return nil
 	}
 	return cln.NewDevices(interfaceID, updates)
+}
+
+func (i *Integration) migrateDigitalInputControls(cfg *config.Config) error {
+	if cfg == nil {
+		return nil
+	}
+
+	const script = `string cid; foreach(cid,dom.GetObject(ID_CHANNELS).EnumIDs()){object ch=dom.GetObject(cid); if(ch && ch.HssType()=="DIGITAL_INPUT"){object dev=dom.GetObject(ch.Device()); if(dev && dev.HssType()=="ModBus"){string did; foreach(did,ch.DPs().EnumEnabledVisibleIDs()){object dp=dom.GetObject(did); if(dp && dp.HssType()=="STATE"){dp.MetaData("CONTROL","SWITCH_TRANSMITTER.STATE");}}}}}`
+	_, err := runReGa(script)
+	return err
 }
 
 func (i *Integration) Close() {
@@ -276,7 +287,7 @@ func (i *Integration) addDevice(d config.Device, eng *engine.Engine) {
 			// Use Homematic's neutral DIGITAL_INPUT channel instead of a
 			// SHUTTER_CONTACT. Modbus discrete inputs are generic binary
 			// inputs, not necessarily door/window contacts.
-			ch := vdevices.NewDigitalChannel(dev, "DIGITAL_INPUT", "DIGITAL_INPUT.STATE")
+			ch := vdevices.NewDigitalChannel(dev, "DIGITAL_INPUT", "SWITCH_TRANSMITTER.STATE")
 			if p, err := ch.ValueParamset().Parameter("STATE"); err == nil {
 				p.Description().Operations = itf.ParameterOperationRead | itf.ParameterOperationEvent
 			}
