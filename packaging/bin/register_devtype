@@ -12,24 +12,20 @@ DP_OVERLAY=$BASE/datapointconfigurator.fn
 
 mkdir -p "$BASE"
 
-is_ours_mounted() {
-  _target="$1"
-  _overlay="$2"
-  grep -F " $_target " /proc/mounts 2>/dev/null | grep -F "$_overlay" >/dev/null 2>&1
-}
-
 unmount_one() {
   _target="$1"
-  _overlay="$2"
-  if is_ours_mounted "$_target" "$_overlay"; then
-    umount "$_target" 2>/dev/null || true
-  fi
+  # Bind mounts of files are reported in /proc/mounts with the backing device
+  # rather than the source filename. Therefore unmount by target path and peel
+  # off all stacked mounts that our repeated installs may have created.
+  while grep -F " $_target " /proc/mounts >/dev/null 2>&1; do
+    umount "$_target" 2>/dev/null || break
+  done
 }
 
 unmount_ours() {
-  unmount_one "$DP_TARGET" "$DP_OVERLAY"
-  unmount_one "$JS_TARGET" "$JS_OVERLAY"
-  unmount_one "$TARGET" "$OVERLAY"
+  unmount_one "$DP_TARGET"
+  unmount_one "$JS_TARGET"
+  unmount_one "$TARGET"
 }
 
 case "$MODE" in
@@ -91,9 +87,11 @@ JS
     # the generic control-name dispatch runs. The original CCU file remains
     # untouched and is revealed again when the addon is removed.
     if [ -f "$DP_TARGET" ]; then
+      TMP_DP="$DP_OVERLAY.tmp.$$"
       awk '
         { print }
-        /object ch = dom.GetObject\(chnId\);/ {
+        !inserted && /object ch = dom.GetObject\(chnId\);/ {
+          inserted=1
           print "          if ((ch.HssType() == \"DIGITAL_INPUT\") && (oE.HssType() == \"STATE\")) {"
           print "            string ccuModbusDigitalInputState = \"LOW\";"
           print "            if (oE.Value() == true) { ccuModbusDigitalInputState = \"HIGH\"; }"
@@ -103,7 +101,9 @@ JS
           print "            sControlName = \"CCU_MODBUS_DIGITAL_INPUT.\";"
           print "          }"
         }
-      ' "$DP_TARGET" > "$DP_OVERLAY"
+      ' "$DP_TARGET" > "$TMP_DP"
+      [ -s "$TMP_DP" ] || { rm -f "$TMP_DP"; exit 1; }
+      mv -f "$TMP_DP" "$DP_OVERLAY"
       mount -o bind "$DP_OVERLAY" "$DP_TARGET"
     fi
     ;;
