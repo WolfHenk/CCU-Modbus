@@ -54,12 +54,7 @@ Für jeden Datenpunkt werden festgelegt:
 - **Pollingintervall**
 - **Register aktiv** – legt fest, ob der Datenpunkt verwendet und abgefragt wird
 
-Bei **Discrete Input** kann zusätzlich festgelegt werden, welche Bedeutung der Modbus-Wert TRUE hat:
-
-- **TRUE = geschlossen** – Standard
-- **TRUE = offen** – invertierte Kontaktlogik
-
-CCU-Modbus zeigt den Eingang entsprechend als **offen** oder **geschlossen** an. Für den virtuellen CCU-Kontakt wird die Logik automatisch so umgesetzt, dass der Homematic-Zustand korrekt dargestellt wird.
+**Discrete Input** wird in der CCU als neutraler Homematic-Kanal vom Typ `DIGITAL_INPUT` mit einem booleschen `STATE` abgebildet. Dadurch erscheint ein allgemeiner Modbus-Eingang nicht mehr als Tür-/Fensterkontakt. `FALSE` entspricht **inaktiv**, `TRUE` entspricht **aktiv**.
 
 Unter **Erweitert** stehen zusätzlich Byte-Swap und Word-Swap zur Verfügung.
 

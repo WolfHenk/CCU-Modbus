@@ -39,7 +39,6 @@ type Integration struct {
 	mu                 sync.RWMutex
 	switches           map[switchKey]*vdevices.DigitalChannel
 	inputs             map[switchKey]*vdevices.DigitalChannel
-	inputTrueMeansOpen map[switchKey]bool
 	current            *config.Config
 
 	cancel context.CancelFunc
@@ -60,7 +59,6 @@ func Attach(parent context.Context, mux *http.ServeMux, cfg *config.Config, eng 
 		devices:            vd,
 		switches:           make(map[switchKey]*vdevices.DigitalChannel),
 		inputs:             make(map[switchKey]*vdevices.DigitalChannel),
-		inputTrueMeansOpen: make(map[switchKey]bool),
 		current:            cfg,
 		cancel:             cancel,
 	}
@@ -80,6 +78,14 @@ func (i *Integration) connectReGa(ctx context.Context, cfg *config.Config) {
 
 	for {
 		if id, err := resolveInterfaceID(); err == nil && id != "" {
+			// ReGa identifies virtual channels by their stable address. Calling
+			// newDevices again for an existing address updates its channel type
+			// in place and therefore preserves ISE ID, programs, rooms and trades.
+			// This migrates older SHUTTER_CONTACT inputs to DIGITAL_INPUT without
+			// deleting/recreating the channel. Failure here is non-fatal: Modbus
+			// operation must not depend on a presentation migration.
+			_ = i.migrateDigitalInputTypes(id)
+
 			if err := i.handler.Init("xmlrpc_bin://127.0.0.1:31999", id); err == nil {
 				time.Sleep(800 * time.Millisecond)
 				_ = ApplyMetadata(cfg)
@@ -93,6 +99,40 @@ func (i *Integration) connectReGa(ctx context.Context, cfg *config.Config) {
 		case <-t.C:
 		}
 	}
+}
+
+func (i *Integration) migrateDigitalInputTypes(interfaceID string) error {
+	cln := &itf.LogicLayerClient{
+		Name:   "CCU-Modbus input migration",
+		Caller: &xmlrpc.Client{Addr: "127.0.0.1:1999"},
+	}
+
+	current, err := cln.ListDevices(interfaceID)
+	if err != nil {
+		return err
+	}
+	currentByAddress := make(map[string]*itf.DeviceDescription, len(current))
+	for _, d := range current {
+		currentByAddress[d.Address] = d
+	}
+
+	var updates []*itf.DeviceDescription
+	for _, dev := range i.devices.Devices() {
+		for _, ch := range dev.Channels() {
+			desired := ch.Description()
+			if desired.Type != "DIGITAL_INPUT" {
+				continue
+			}
+			if existing := currentByAddress[desired.Address]; existing != nil && existing.Type != desired.Type {
+				updates = append(updates, desired)
+			}
+		}
+	}
+
+	if len(updates) == 0 {
+		return nil
+	}
+	return cln.NewDevices(interfaceID, updates)
 }
 
 func (i *Integration) Close() {
@@ -112,7 +152,7 @@ func (i *Integration) Close() {
 
 // ReplaceConfig keeps already commissioned devices in ReGa whenever their
 // CCU-visible topology did not change. Ordinary Modbus edits (name, address,
-// scaling, polling, room/function, TRUE meaning, etc.) must therefore not send
+// scaling, polling, room/function, etc.) must therefore not send
 // an already accepted device back to the inbox.
 func (i *Integration) ReplaceConfig(cfg *config.Config, eng *engine.Engine) {
 	if i == nil || i.devices == nil || cfg == nil {
@@ -122,7 +162,6 @@ func (i *Integration) ReplaceConfig(cfg *config.Config, eng *engine.Engine) {
 	i.mu.Lock()
 
 	if i.canReuseModel(cfg) {
-		i.refreshInputSemantics(cfg)
 		i.current = cfg
 		i.mu.Unlock()
 		_ = ApplyMetadata(cfg)
@@ -186,18 +225,6 @@ func virtualChannelSignature(d config.Device) []string {
 	return out
 }
 
-func (i *Integration) refreshInputSemantics(cfg *config.Config) {
-	m := make(map[switchKey]bool)
-	for _, d := range cfg.Devices {
-		for _, r := range d.Registers {
-			if r.Enabled && strings.ToLower(r.DataType) == "bool" && r.Type == "discrete" {
-				m[switchKey{deviceID: d.ID, registerID: r.ID}] = r.TrueMeansOpen
-			}
-		}
-	}
-	i.inputTrueMeansOpen = m
-}
-
 // RemoveAll unregisters all virtual ModBus devices while ReGa is connected.
 func (i *Integration) RemoveAll() {
 	if i == nil || i.devices == nil {
@@ -213,7 +240,6 @@ func (i *Integration) RemoveAll() {
 	i.handler.Synchronize()
 	i.switches = make(map[switchKey]*vdevices.DigitalChannel)
 	i.inputs = make(map[switchKey]*vdevices.DigitalChannel)
-	i.inputTrueMeansOpen = make(map[switchKey]bool)
 	time.Sleep(800 * time.Millisecond)
 }
 
@@ -239,12 +265,14 @@ func (i *Integration) addDevice(d config.Device, eng *engine.Engine) {
 			i.switches[key] = ch
 
 		case "discrete":
-			ch := vdevices.NewDoorSensorChannel(dev)
+			// Use Homematic's neutral DIGITAL_INPUT channel instead of a
+			// SHUTTER_CONTACT. Modbus discrete inputs are generic binary
+			// inputs, not necessarily door/window contacts.
+			ch := vdevices.NewDigitalChannel(dev, "DIGITAL_INPUT", "DIGITAL_INPUT.STATE")
 			if p, err := ch.ValueParamset().Parameter("STATE"); err == nil {
 				p.Description().Operations = itf.ParameterOperationRead | itf.ParameterOperationEvent
 			}
 			i.inputs[key] = ch
-			i.inputTrueMeansOpen[key] = reg.TrueMeansOpen
 		}
 	}
 
@@ -286,12 +314,8 @@ func (i *Integration) syncStates(states []model.DeviceState) {
 				continue
 			}
 			if ch := i.inputs[key]; ch != nil {
-				ccuState := v
-				if !i.inputTrueMeansOpen[key] {
-					ccuState = !v
-				}
-				if ch.State() != ccuState {
-					ch.SetState(ccuState)
+				if ch.State() != v {
+					ch.SetState(v)
 				}
 			}
 		}
