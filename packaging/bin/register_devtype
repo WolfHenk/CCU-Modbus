@@ -4,9 +4,11 @@ set -eu
 MODE="${1:-install}"
 TARGET=/www/config/devdescr/DEVDB.tcl
 JS_TARGET=/www/devdescr.js
+DP_TARGET=/www/rega/esp/datapointconfigurator.fn
 BASE=/usr/local/addons/ccu-modbus/devdescr
 OVERLAY=$BASE/DEVDB.tcl
 JS_OVERLAY=$BASE/devdescr.js
+DP_OVERLAY=$BASE/datapointconfigurator.fn
 
 mkdir -p "$BASE"
 
@@ -25,6 +27,7 @@ unmount_one() {
 }
 
 unmount_ours() {
+  unmount_one "$DP_TARGET" "$DP_OVERLAY"
   unmount_one "$JS_TARGET" "$JS_OVERLAY"
   unmount_one "$TARGET" "$OVERLAY"
 }
@@ -80,6 +83,28 @@ if (typeof DEV_PATHS !== "undefined") {
 if (typeof DEV_HIGHLIGHT !== "undefined") DEV_HIGHLIGHT["ModBus"] = new Object();
 JS
       mount -o bind "$JS_OVERLAY" "$JS_TARGET"
+    fi
+
+    # OpenCCU has no native status renderer for DIGITAL_INPUT.STATE. Older
+    # migrated channels may additionally retain DOOR_SENSOR.STATE metadata in
+    # ReGa. Overlay the dispatcher and handle DIGITAL_INPUT explicitly before
+    # the generic control-name dispatch runs. The original CCU file remains
+    # untouched and is revealed again when the addon is removed.
+    if [ -f "$DP_TARGET" ]; then
+      awk '
+        { print }
+        /object ch = dom.GetObject\(chnId\);/ {
+          print "          if ((ch.HssType() == \"DIGITAL_INPUT\") && (oE.HssType() == \"STATE\")) {"
+          print "            string ccuModbusDigitalInputState = \"LOW\";"
+          print "            if (oE.Value() == true) { ccuModbusDigitalInputState = \"HIGH\"; }"
+          print "            WriteLine(\"<td><div class=\x27ControlBtnInfo CLASS02532a\x27 style=\x27text-align:center; min-width:110px; height:35px; line-height:35px; font-weight:bold;\x27>\"#ccuModbusDigitalInputState#\"</div></td>\");"
+          print "            isKnownControl = true;"
+          print "            sLastControlName = \"CCU_MODBUS_DIGITAL_INPUT.\";"
+          print "            sControlName = \"CCU_MODBUS_DIGITAL_INPUT.\";"
+          print "          }"
+        }
+      ' "$DP_TARGET" > "$DP_OVERLAY"
+      mount -o bind "$DP_OVERLAY" "$DP_TARGET"
     fi
     ;;
 
