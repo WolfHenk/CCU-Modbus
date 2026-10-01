@@ -120,7 +120,7 @@ Schaltbefehle der CCU werden nicht synchron direkt auf Modbus ausgeführt. Sie w
 
 Die Rückmeldungen an die CCU stammen aus dem lokalen Polling-Cache.
 
-**Räume und Gewerke werden ausschließlich in der normalen CCU-Weboberfläche zugeordnet.** CCU-Modbus verändert diese Zuordnungen beim Speichern nicht.
+**Räume und Gewerke werden ausschließlich in der normalen CCU-Weboberfläche zugeordnet.** CCU-Modbus verändert diese Zuordnungen beim Speichern nicht. Auch bei Änderungen der Modbus-Kanalstruktur werden bestehende CCU-Kanäle nicht mehr als komplettes Gerät ab- und neu angemeldet, damit ihre Raum- und Gewerkzuordnungen erhalten bleiben.
 
 Weitere Registertypen werden bereits von CCU-Modbus gelesen und angezeigt; ihre Abbildung auf zusätzliche CCU-Kanaltypen wird schrittweise erweitert.
 

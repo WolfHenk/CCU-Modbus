@@ -129,27 +129,14 @@ func (i *Integration) ReplaceConfig(cfg *config.Config, eng *engine.Engine) {
 		return
 	}
 
-	// A real CCU topology change (device identity or BOOL channel structure)
-	// still requires rebuilding the virtual model. ReGa does not reliably
-	// accept new child channels for an existing virtual device.
-	for _, d := range i.devices.Devices() {
-		_ = i.devices.RemoveDevice(d.Description().Address)
-	}
-	i.handler.Synchronize()
-	time.Sleep(1200 * time.Millisecond)
-
-	i.switches = make(map[switchKey]*vdevices.DigitalChannel)
-	i.inputs = make(map[switchKey]*vdevices.DigitalChannel)
-	i.inputTrueMeansOpen = make(map[switchKey]bool)
-
-	for _, d := range cfg.Devices {
-		i.addDevice(d, eng)
-	}
-	i.handler.Synchronize()
-	time.Sleep(1200 * time.Millisecond)
+	// Never delete/recreate the complete virtual device while ReGa is live.
+	// ReGa drops room/function memberships when channels are removed this way.
+	// The CGI restarts the daemon after every successful save. On the fresh
+	// daemon start go-hmccu compares the existing ReGa model with the new
+	// configuration and adds/removes only channels whose topology really
+	// changed. Existing channels keep their ReGa objects and assignments.
 	i.current = cfg
 	i.mu.Unlock()
-	_ = ApplyMetadata(cfg)
 }
 
 func (i *Integration) canReuseModel(next *config.Config) bool {
