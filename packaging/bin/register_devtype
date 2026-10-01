@@ -4,29 +4,25 @@ set -eu
 MODE="${1:-install}"
 TARGET=/www/config/devdescr/DEVDB.tcl
 JS_TARGET=/www/devdescr.js
+WEBUI_TARGET=/www/webui/webui.js
 BASE=/usr/local/addons/ccu-modbus/devdescr
 OVERLAY=$BASE/DEVDB.tcl
 JS_OVERLAY=$BASE/devdescr.js
+WEBUI_OVERLAY=$BASE/webui.js
 
 mkdir -p "$BASE"
 
-is_ours_mounted() {
-  _target="$1"
-  _overlay="$2"
-  grep -F " $_target " /proc/mounts 2>/dev/null | grep -F "$_overlay" >/dev/null 2>&1
-}
-
 unmount_one() {
   _target="$1"
-  _overlay="$2"
-  if is_ours_mounted "$_target" "$_overlay"; then
-    umount "$_target" 2>/dev/null || true
-  fi
+  while grep -F " $_target " /proc/mounts >/dev/null 2>&1; do
+    umount "$_target" 2>/dev/null || break
+  done
 }
 
 unmount_ours() {
-  unmount_one "$JS_TARGET" "$JS_OVERLAY"
-  unmount_one "$TARGET" "$OVERLAY"
+  unmount_one "$WEBUI_TARGET"
+  unmount_one "$JS_TARGET"
+  unmount_one "$TARGET"
 }
 
 case "$MODE" in
@@ -47,7 +43,7 @@ set path "/addons/ccu-modbus/img/modbus-logo.png"
 if {[lsearch -exact $DEV_LIST $type] < 0} {
     lappend DEV_LIST $type
 }
-set DEV_DESCRIPTION($type) "ModBus"
+set DEV_DESCRIPTION($type) "Modbus-Gerät"
 set DEV_PATHS($type) [list [list 50 $path] [list 250 $path]]
 set DEV_HIGHLIGHT($type) {}
 
@@ -71,7 +67,7 @@ TCL
 
 // CCU-Modbus runtime device description
 if (typeof DEV_LIST !== "undefined" && DEV_LIST.indexOf("ModBus") < 0) DEV_LIST.push("ModBus");
-if (typeof DEV_DESCRIPTION !== "undefined") DEV_DESCRIPTION["ModBus"] = "ModBus";
+if (typeof DEV_DESCRIPTION !== "undefined") DEV_DESCRIPTION["ModBus"] = "Modbus-Gerät";
 if (typeof DEV_PATHS !== "undefined") {
   DEV_PATHS["ModBus"] = new Object();
   DEV_PATHS["ModBus"]["50"] = "/addons/ccu-modbus/img/modbus-logo.png";
@@ -80,6 +76,32 @@ if (typeof DEV_PATHS !== "undefined") {
 if (typeof DEV_HIGHLIGHT !== "undefined") DEV_HIGHLIGHT["ModBus"] = new Object();
 JS
       mount -o bind "$JS_OVERLAY" "$JS_TARGET"
+    fi
+
+    # OpenCCU 3.x keeps the device type table inside webui.js. Build a derived
+    # copy under the addon and add ModBus before DeviceTypeList is initialized.
+    # The original OpenCCU file is never modified.
+    if [ -f "$WEBUI_TARGET" ]; then
+      TMP_WEBUI="$WEBUI_OVERLAY.tmp.$$"
+      awk '
+        !inserted && /^DeviceType = Class.create\(/ {
+          inserted=1
+          print "// CCU-Modbus runtime device type"
+          print "if (typeof DEV_LIST !== \"undefined\" && DEV_LIST.indexOf(\"ModBus\") < 0) DEV_LIST.push(\"ModBus\");"
+          print "if (typeof DEV_DESCRIPTION !== \"undefined\") DEV_DESCRIPTION[\"ModBus\"] = \"Modbus-Ger\\u00e4t\";"
+          print "if (typeof DEV_PATHS !== \"undefined\") {"
+          print "  DEV_PATHS[\"ModBus\"] = new Object();"
+          print "  DEV_PATHS[\"ModBus\"][\"50\"] = \"/addons/ccu-modbus/img/modbus-logo.png\";"
+          print "  DEV_PATHS[\"ModBus\"][\"250\"] = \"/addons/ccu-modbus/img/modbus-logo.png\";"
+          print "}"
+          print "if (typeof DEV_HIGHLIGHT !== \"undefined\") DEV_HIGHLIGHT[\"ModBus\"] = new Object();"
+        }
+        { print }
+      ' "$WEBUI_TARGET" > "$TMP_WEBUI"
+      [ -s "$TMP_WEBUI" ] || { rm -f "$TMP_WEBUI"; exit 1; }
+      grep -F 'DEV_DESCRIPTION["ModBus"] = "Modbus-Ger\u00e4t"' "$TMP_WEBUI" >/dev/null || { rm -f "$TMP_WEBUI"; exit 1; }
+      mv -f "$TMP_WEBUI" "$WEBUI_OVERLAY"
+      mount -o bind "$WEBUI_OVERLAY" "$WEBUI_TARGET"
     fi
     ;;
 
