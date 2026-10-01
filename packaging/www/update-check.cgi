@@ -5,12 +5,24 @@
 #   ?cmd=check_version&version=<installed>
 #   ?cmd=download&version=<installed>
 #
-# While the repository is private, the unauthenticated CCU cannot read
-# VERSION from GitHub and this returns n/a. The download redirect still
-# leads the logged-in browser to the repository download folder.
+# Downloading a mutable raw.githubusercontent.com/main/.../latest URL is not
+# safe immediately after a release because the CDN may serve the previous
+# object for several minutes. Therefore resolve main to a commit SHA first and
+# use that immutable SHA for VERSION and package download.
 
-set checkURL    "https://raw.githubusercontent.com/WolfHenk/CCU-Modbus/main/VERSION"
-set downloadURL "https://github.com/WolfHenk/CCU-Modbus/raw/refs/heads/main/releases/ccu-modbus-latest.tar.gz"
+set repoApi "https://api.github.com/repos/WolfHenk/CCU-Modbus/commits/main"
+set rawBase "https://raw.githubusercontent.com/WolfHenk/CCU-Modbus"
+
+proc current_commit {repoApi} {
+    set body ""
+    if {[catch {set body [exec /usr/bin/env curl -fsSL --max-time 10 -H {Cache-Control: no-cache} -H {Accept: application/vnd.github+json} $repoApi]}]} {
+        return ""
+    }
+    if {[regexp {"sha"[[:space:]]*:[[:space:]]*"([0-9a-fA-F]{40})"} $body dummy sha]} {
+        return [string tolower $sha]
+    }
+    return ""
+}
 
 set cmd ""
 if {[info exists env(QUERY_STRING)]} {
@@ -21,20 +33,31 @@ if {[info exists env(QUERY_STRING)]} {
     }
 }
 
+set sha [current_commit $repoApi]
+
 if {$cmd == "download"} {
-    puts -nonewline "Content-Type: text/html; charset=utf-8\r\n\r\n"
+    if {$sha == ""} {
+        puts -nonewline "Status: 503 Service Unavailable\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n"
+        puts -nonewline "Aktueller CCU-Modbus-Stand konnte nicht ermittelt werden."
+        exit 0
+    }
+    set downloadURL "$rawBase/$sha/releases/ccu-modbus-latest.tar.gz"
+    puts -nonewline "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\n\r\n"
     puts -nonewline "<html><head><meta http-equiv='refresh' content='0; url=$downloadURL'></head><body></body></html>"
     exit 0
 }
 
-puts -nonewline "Content-Type: text/plain; charset=utf-8\r\n\r\n"
+puts -nonewline "Content-Type: text/plain; charset=utf-8\r\nCache-Control: no-store\r\n\r\n"
 
-set newversion ""
-catch {
-    set newversion [string trim [exec /usr/bin/env curl -fsSL --max-time 10 $checkURL]]
+if {$sha != ""} {
+    set versionURL "$rawBase/$sha/VERSION"
+    set newversion ""
+    catch {
+        set newversion [string trim [exec /usr/bin/env curl -fsSL --max-time 10 $versionURL]]
+    }
+    if {$newversion != ""} {
+        puts -nonewline $newversion
+        exit 0
+    }
 }
-if {$newversion != ""} {
-    puts -nonewline $newversion
-} else {
-    puts -nonewline "n/a"
-}
+puts -nonewline "n/a"

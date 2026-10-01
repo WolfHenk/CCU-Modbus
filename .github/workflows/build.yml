@@ -5,6 +5,7 @@ on:
     branches: [ main ]
     paths-ignore:
       - 'releases/**'
+      - 'README.md'
   pull_request:
 
 permissions:
@@ -47,3 +48,11 @@ jobs:
           fi
           git commit -m "Add installable package ${VERSION} [skip ci]"
           git push
+
+          PACKAGE_COMMIT="$(git rev-parse HEAD)"
+          PACKAGE_COMMIT="$PACKAGE_COMMIT" python3 -c 'from pathlib import Path; import os,re; p=Path("README.md"); s=p.read_text(); sha=os.environ["PACKAGE_COMMIT"]; url=f"https://raw.githubusercontent.com/WolfHenk/CCU-Modbus/{sha}/releases/ccu-modbus-latest.tar.gz"; s=re.sub(r"https://raw\.githubusercontent\.com/WolfHenk/CCU-Modbus/[0-9a-f]{40}/releases/ccu-modbus-latest\.tar\.gz",url,s); p.write_text(s)'
+          git add README.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Pin download link for ${VERSION} [skip ci]"
+            git push
+          fi
