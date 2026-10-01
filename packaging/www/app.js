@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 var sid=window.CCU_MODBUS_SID||'';
-var cfg=null, states=[], meta={rooms:[],functions:[]}, dirty=false, editDevice=-1, editRegister=-1, expanded={};
+var cfg=null, states=[], dirty=false, editDevice=-1, editRegister=-1, expanded={};
 var $=function(id){return document.getElementById(id);};
 
 function api(action,method,body){
@@ -84,29 +84,20 @@ function workingDevice(){
 }
 function renderRegisters(){
   var d=$('deviceDialog')._working, tb=$('registerRows');tb.innerHTML='';
-  d.registers.forEach(function(r,i){var tr=document.createElement('tr');tr.innerHTML='<td><span class="regName"><img class="regIcon" src="'+registerIcon(r.type)+'" alt="">'+esc(r.name)+'</span></td><td>'+esc(typeName(r.type))+'</td><td>'+r.address+'</td><td>'+esc(r.datatype)+'</td><td>'+esc(metaName(meta.rooms,r.room_id)||'—')+'</td><td>'+esc(metaName(meta.functions,r.function_id)||'—')+'</td><td>'+r.poll_seconds+' s</td><td><button type="button" data-r="'+i+'">Bearbeiten</button></td>';tb.appendChild(tr);});
+  d.registers.forEach(function(r,i){var tr=document.createElement('tr');tr.innerHTML='<td><span class="regName"><img class="regIcon" src="'+registerIcon(r.type)+'" alt="">'+esc(r.name)+'</span></td><td>'+esc(typeName(r.type))+'</td><td>'+r.address+'</td><td>'+esc(r.datatype)+'</td><td>'+r.poll_seconds+' s</td><td><button type="button" data-r="'+i+'">Bearbeiten</button></td>';tb.appendChild(tr);});
   tb.querySelectorAll('[data-r]').forEach(function(b){b.onclick=function(){openRegister(Number(this.getAttribute('data-r')));};});
 }
 function registerIcon(t){return {coil:'img/modbus-output.svg',discrete:'img/modbus-input.svg',holding:'img/modbus-register.svg',input:'img/modbus-input-register.svg'}[t]||'img/modbus-register.svg';}
 function typeName(t){return {holding:'Holding',input:'Input',coil:'Coil',discrete:'Discrete'}[t]||t;}
-function blankRegister(){return {id:'reg-'+Date.now(),name:'',enabled:true,type:'holding',address:0,datatype:'INT16',factor:1,offset:0,byte_swap:false,word_swap:false,poll_seconds:10,unit:'',true_means_open:false,room_id:0,function_id:0};}
-function fillSelect(id,items,emptyText,value){
-  var s=$(id);s.innerHTML='<option value="0">'+esc(emptyText)+'</option>';
-  (items||[]).forEach(function(x){var o=document.createElement('option');o.value=x.id;o.textContent=x.name;s.appendChild(o);});
-  s.value=String(value||0);
-}
-function metaName(items,id){
-  id=Number(id||0);for(var i=0;i<(items||[]).length;i++)if(Number(items[i].id)===id)return items[i].name;return '';
-}
+function blankRegister(){return {id:'reg-'+Date.now(),name:'',enabled:true,type:'holding',address:0,datatype:'INT16',factor:1,offset:0,byte_swap:false,word_swap:false,poll_seconds:10,unit:'',true_means_open:false};}
 function openRegister(idx){
   editRegister=idx;var d=$('deviceDialog')._working,r=idx<0?blankRegister():JSON.parse(JSON.stringify(d.registers[idx]));$('registerDialog')._working=r;$('registerTitle').textContent=idx<0?'Register hinzufügen':'Register bearbeiten';
   $('rName').value=r.name;$('rType').value=r.type;$('rAddress').value=r.address;$('rDatatype').value=String(r.datatype).toUpperCase();$('rUnit').value=r.unit||'';$('rFactor').value=r.factor;$('rOffset').value=r.offset;$('rPoll').value=r.poll_seconds;$('rByteSwap').checked=r.byte_swap;$('rWordSwap').checked=r.word_swap;$('rEnabled').checked=r.enabled;$('rTrueMeaning').value=r.true_means_open?'open':'closed';
-  fillSelect('rRoom',meta.rooms,'Kein Raum',r.room_id);fillSelect('rFunction',meta.functions,'Kein Gewerk',r.function_id);
   $('registerResult').textContent='';$('deleteRegister').style.visibility=idx<0?'hidden':'visible';
   $('rSeries').checked=false;$('rSeries').disabled=idx>=0;$('rSeriesCount').value=2;syncSeries();syncDatatype();$('registerDialog').showModal();
 }
 function workingRegister(){
-  var r=$('registerDialog')._working;r.name=$('rName').value.trim();r.type=$('rType').value;r.address=Number($('rAddress').value);r.datatype=$('rDatatype').value.toLowerCase();r.unit=$('rUnit').value.trim();r.factor=parseNumber($('rFactor').value,1);r.offset=parseNumber($('rOffset').value,0);r.poll_seconds=Number($('rPoll').value);r.byte_swap=$('rByteSwap').checked;r.word_swap=$('rWordSwap').checked;r.enabled=$('rEnabled').checked;r.true_means_open=(r.type==='discrete'&&$('rTrueMeaning').value==='open');r.room_id=Number($('rRoom').value||0);r.function_id=Number($('rFunction').value||0);return r;
+  var r=$('registerDialog')._working;r.name=$('rName').value.trim();r.type=$('rType').value;r.address=Number($('rAddress').value);r.datatype=$('rDatatype').value.toLowerCase();r.unit=$('rUnit').value.trim();r.factor=parseNumber($('rFactor').value,1);r.offset=parseNumber($('rOffset').value,0);r.poll_seconds=Number($('rPoll').value);r.byte_swap=$('rByteSwap').checked;r.word_swap=$('rWordSwap').checked;r.enabled=$('rEnabled').checked;r.true_means_open=(r.type==='discrete'&&$('rTrueMeaning').value==='open');return r;
 }
 function parseNumber(v,def){var n=Number(String(v).replace(',','.'));return isFinite(n)?n:def;}
 function numberedName(name,n){
@@ -159,6 +150,6 @@ $('testRegister').onclick=function(){var out=$('registerResult'),d=workingDevice
 $('saveAll').onclick=function(){if(!dirty)return;this.disabled=true;var btn=this;api('save','POST',cfg).then(function(){setDirty(false);notice('Konfiguration gespeichert. Modbus-Dienst wird neu gestartet.');setTimeout(loadStatus,1800);}).catch(function(e){notice('Speichern fehlgeschlagen: '+e.message,true);}).finally(function(){btn.disabled=false;});};
 
 function loadStatus(){api('status').then(function(x){states=Array.isArray(x)?x:[];render();}).catch(function(){states=[];render();});}
-function init(){Promise.all([api('config'),api('status').catch(function(){return [];}),api('metadata').catch(function(){return {rooms:[],functions:[]};})]).then(function(x){cfg=x[0];states=Array.isArray(x[1])?x[1]:[];meta=x[2]||{rooms:[],functions:[]};setDirty(false);render();setInterval(loadStatus,5000);}).catch(function(e){notice('CCU-Modbus konnte nicht geladen werden: '+e.message,true);});}
+function init(){Promise.all([api('config'),api('status').catch(function(){return [];})]).then(function(x){cfg=x[0];states=Array.isArray(x[1])?x[1]:[];setDirty(false);render();setInterval(loadStatus,5000);}).catch(function(e){notice('CCU-Modbus konnte nicht geladen werden: '+e.message,true);});}
 init();
 })();

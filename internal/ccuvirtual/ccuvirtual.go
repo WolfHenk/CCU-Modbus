@@ -32,16 +32,6 @@ type switchKey struct {
 	registerID string
 }
 
-type MetadataItem struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-}
-
-type Metadata struct {
-	Rooms     []MetadataItem `json:"rooms"`
-	Functions []MetadataItem `json:"functions"`
-}
-
 type Integration struct {
 	handler *vdevices.Handler
 	devices *vdevices.Container
@@ -334,37 +324,6 @@ func resolveInterfaceID() (string, error) {
 	return id, nil
 }
 
-func ReadMetadata() (Metadata, error) {
-	script := `string id;
-foreach(id, dom.GetObject(ID_ROOMS).EnumIDs()){object o=dom.GetObject(id); if(o){WriteLine("R\t"#o.ID()#"\t"#o.Name());}}
-foreach(id, dom.GetObject(ID_FUNCTIONS).EnumIDs()){object o=dom.GetObject(id); if(o){WriteLine("F\t"#o.ID()#"\t"#o.Name());}}`
-	out, err := runReGa(script)
-	if err != nil {
-		return Metadata{}, err
-	}
-
-	var m Metadata
-	for _, line := range strings.Split(out, "\n") {
-		line = strings.TrimSuffix(line, "\r")
-		p := strings.SplitN(line, "\t", 3)
-		if len(p) != 3 {
-			continue
-		}
-		id, err := strconv.Atoi(strings.TrimSpace(p[1]))
-		if err != nil {
-			continue
-		}
-		item := MetadataItem{ID: id, Name: p[2]}
-		switch p[0] {
-		case "R":
-			m.Rooms = append(m.Rooms, item)
-		case "F":
-			m.Functions = append(m.Functions, item)
-		}
-	}
-	return m, nil
-}
-
 func ApplyMetadata(cfg *config.Config) error {
 	if cfg == nil {
 		return nil
@@ -384,14 +343,7 @@ func ApplyMetadata(cfg *config.Config) error {
 				continue
 			}
 			chAddr := fmt.Sprintf("%s:%d", addr, channel)
-			fmt.Fprintf(&b, `string cid; foreach(cid,dom.GetObject(ID_CHANNELS).EnumIDs()){object ch=dom.GetObject(cid); if(ch && ch.Address()==%s){ch.Name(%s); string x; foreach(x,dom.GetObject(ID_ROOMS).EnumIDs()){object e=dom.GetObject(x); if(e){e.Remove(ch.ID());}} foreach(x,dom.GetObject(ID_FUNCTIONS).EnumIDs()){object e=dom.GetObject(x); if(e){e.Remove(ch.ID());}}`, regaQuote(chAddr), regaQuote(r.Name))
-			if r.RoomID > 0 {
-				fmt.Fprintf(&b, ` object room=dom.GetObject(%d); if(room){room.Add(ch.ID());}`, r.RoomID)
-			}
-			if r.FunctionID > 0 {
-				fmt.Fprintf(&b, ` object fn=dom.GetObject(%d); if(fn){fn.Add(ch.ID());}`, r.FunctionID)
-			}
-			b.WriteString("}}")
+			fmt.Fprintf(&b, `string cid; foreach(cid,dom.GetObject(ID_CHANNELS).EnumIDs()){object ch=dom.GetObject(cid); if(ch && ch.Address()==%s){ch.Name(%s);}}`, regaQuote(chAddr), regaQuote(r.Name))
 			channel++
 		}
 	}

@@ -66,18 +66,7 @@ func main() {
 		}
 		jsonReply(w, http.StatusOK, eng.Snapshot())
 	})
-	mux.HandleFunc("/ccu-metadata", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			jsonReply(w, http.StatusMethodNotAllowed, map[string]any{"ok": false, "error": "Methode nicht erlaubt"})
-			return
-		}
-		m, err := ccuvirtual.ReadMetadata()
-		if err != nil {
-			jsonReply(w, http.StatusServiceUnavailable, map[string]any{"ok": false, "error": "CCU-Metadaten nicht verfuegbar: " + err.Error()})
-			return
-		}
-		jsonReply(w, http.StatusOK, m)
-	})
+
 	mux.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:

@@ -53,8 +53,6 @@ Für jeden Datenpunkt werden festgelegt:
 - **Offset**
 - **Pollingintervall**
 - **Register aktiv** – legt fest, ob der Datenpunkt verwendet und abgefragt wird
-- **Raum** – optionaler, bereits in der CCU vorhandener Raum
-- **Gewerk** – optionales, bereits in der CCU vorhandenes Gewerk
 
 Bei **Discrete Input** kann zusätzlich festgelegt werden, welche Bedeutung der Modbus-Wert TRUE hat:
 
@@ -89,7 +87,7 @@ Eingang 3   Adresse 2
 Eingang 16  Adresse 15
 ```
 
-Alle übrigen Einstellungen werden übernommen, einschließlich Raum und Gewerk. Anschließend kann jeder erzeugte Kanal einzeln angepasst werden.
+Alle übrigen Registereinstellungen werden übernommen. Anschließend kann jeder erzeugte Kanal einzeln angepasst werden.
 
 Bei 32-Bit-Datentypen wird die Modbus-Adresse automatisch in Zweierschritten weitergezählt.
 
@@ -117,11 +115,12 @@ Das virtuelle Gerät besitzt:
 - BOOL-Coils als schaltbare CCU-Kanäle
 - BOOL-Discrete-Inputs als nur lesbare CCU-Kanäle
 - frei vergebene Kanalnamen aus der Modbus-Konfiguration
-- optionale Raum- und Gewerkzuordnungen, die in die vorhandenen CCU-Räume und -Gewerke gespiegelt werden
 
 Schaltbefehle der CCU werden nicht synchron direkt auf Modbus ausgeführt. Sie werden an den jeweiligen Geräte-Worker übergeben. Dadurch wartet ReGaHss nicht auf ein langsames oder ausgefallenes Modbus-Gerät.
 
 Die Rückmeldungen an die CCU stammen aus dem lokalen Polling-Cache.
+
+**Räume und Gewerke werden ausschließlich in der normalen CCU-Weboberfläche zugeordnet.** CCU-Modbus verändert diese Zuordnungen beim Speichern nicht.
 
 Weitere Registertypen werden bereits von CCU-Modbus gelesen und angezeigt; ihre Abbildung auf zusätzliche CCU-Kanaltypen wird schrittweise erweitert.
 
