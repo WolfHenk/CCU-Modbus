@@ -5,13 +5,27 @@ import (
 	"unicode/utf8"
 )
 
-func TestLatin1DecodesOpenCCUReGaText(t *testing.T) {
-	got := latin1([]byte{'T', 0xfc, 'r'})
-	want := "Tür"
-	if got != want {
-		t.Fatalf("latin1() = %q, want %q", got, want)
+func TestDecodeReGaLegacyLatin1(t *testing.T) {
+	got := decodeReGaText([]byte{'T', 0xfc, 'r'})
+	if got != "Tür" {
+		t.Fatalf("decodeReGaText Latin-1 = %q", got)
 	}
 	if !utf8.ValidString(got) {
-		t.Fatalf("latin1() returned invalid UTF-8: %q", got)
+		t.Fatalf("invalid UTF-8: %q", got)
+	}
+}
+
+func TestDecodeReGaKeepsUTF8(t *testing.T) {
+	got := decodeReGaText([]byte("TürMeldungen"))
+	if got != "TürMeldungen" {
+		t.Fatalf("decodeReGaText UTF-8 = %q", got)
+	}
+}
+
+func TestDecodeReGaMixedUTF8AndLatin1(t *testing.T) {
+	raw := append([]byte("Tür|"), []byte{'T', 0xfc, 'r'}...)
+	got := decodeReGaText(raw)
+	if got != "Tür|Tür" {
+		t.Fatalf("decodeReGaText mixed = %q", got)
 	}
 }
