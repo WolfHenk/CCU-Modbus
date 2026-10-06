@@ -10,13 +10,21 @@ if {![check_session $sid]} {
     exit 0
 }
 
+set addonVersion "unknown"
+set versionFile "/usr/local/addons/ccu-modbus/VERSION"
+if {[file readable $versionFile]} {
+    set vf [open $versionFile r]
+    set addonVersion [string trim [read $vf]]
+    close $vf
+}
+
 puts "Content-Type: text/html; charset=utf-8\r"
 puts "Cache-Control: no-store\r"
 puts "\r"
 puts {<!doctype html>}
 puts {<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">}
-puts {<title>CCU-Modbus</title><link rel="stylesheet" href="style.css?v=0.1.14"></head><body>}
-puts {<header class="top"><div><img src="img/modbus-logo.png" class="logo" alt="Modbus"></div><div><h1>CCU-Modbus</h1><div class="sub">Modbus TCP Interface für CCU/OpenCCU</div></div><div class="version">0.1.14</div></header>}
+puts [format {<title>CCU-Modbus</title><link rel="stylesheet" href="style.css?v=%s"></head><body>} $addonVersion]
+puts [format {<header class="top"><div><img src="img/modbus-logo.png" class="logo" alt="Modbus"></div><div><h1>CCU-Modbus</h1><div class="sub">Modbus TCP Interface für CCU/OpenCCU</div></div><div class="version">%s</div></header>} $addonVersion]
 puts {<main><div id="notice" class="notice hidden"></div>}
 puts {<section class="toolbar"><div><h2>Modbus-Geräte</h2><div class="hint">Geräte und Werte werden lokal auf der CCU gespeichert.</div></div><button id="addDevice" class="primary">+ Gerät hinzufügen</button></section>}
 puts {<div id="devices" class="devices"><div class="empty">Lade Konfiguration…</div></div>}
@@ -36,4 +44,4 @@ puts {<div class="seriesbox"><label class="check"><input id="rSeries" type="chec
 puts {<div class="testline"><button type="button" id="testRegister">Wert testen</button><span id="registerResult"></span></div>}
 puts {<div class="dialogactions"><button type="button" id="deleteRegister" class="danger">Register löschen</button><span class="spacer"></span><button value="cancel">Abbrechen</button><button type="button" id="applyRegister" class="primary">Übernehmen</button></div></form></dialog>}
 puts "<script>window.CCU_MODBUS_SID='$sid';</script>"
-puts {<script src="app.js?v=0.1.14"></script></body></html>}
+puts [format {<script src="app.js?v=%s"></script></body></html>} $addonVersion]

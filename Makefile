@@ -8,6 +8,7 @@ test:
 	go test ./...
 	go vet ./...
 	node --check packaging/www/app.js
+	! grep -Eq 'v=0\.1\.[0-9]+|class="version">0\.1\.[0-9]+' packaging/www/index.cgi
 
 build:
 	mkdir -p build/bin/linux-amd64 build/bin/linux-arm64 build/bin/linux-arm
