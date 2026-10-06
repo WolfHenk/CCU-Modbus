@@ -477,7 +477,7 @@ func runReGa(script string) (string, error) {
 	if p := bytes.Index(body, []byte("<xml>")); p >= 0 {
 		body = body[:p]
 	}
-	return string(body), nil
+	return latin1(body), nil
 }
 
 func latin1(b []byte) string {
