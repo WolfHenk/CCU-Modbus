@@ -360,6 +360,74 @@ func resolveInterfaceID() (string, error) {
 	return id, nil
 }
 
+// SyncNamesFromReGa imports user-visible device and channel names from ReGa
+// into the persistent Modbus configuration. ReGa is authoritative for names
+// changed in the normal CCU device/channel UI.
+func SyncNamesFromReGa(cfg *config.Config) (bool, error) {
+	if cfg == nil {
+		return false, nil
+	}
+
+	var b strings.Builder
+	for _, d := range cfg.Devices {
+		addr := deviceAddress(d)
+		fmt.Fprintf(&b, `string did; foreach(did,dom.GetObject(ID_DEVICES).EnumIDs()){object dev=dom.GetObject(did); if(dev && dev.Address()==%s){WriteLine("D|"+dev.Address()+"|"+dev.Name());}}`, regaQuote(addr))
+
+		channel := 1
+		for _, r := range d.Registers {
+			if !r.Enabled || strings.ToLower(r.DataType) != "bool" || (r.Type != "coil" && r.Type != "discrete") {
+				continue
+			}
+			chAddr := fmt.Sprintf("%s:%d", addr, channel)
+			fmt.Fprintf(&b, `string cid; foreach(cid,dom.GetObject(ID_CHANNELS).EnumIDs()){object ch=dom.GetObject(cid); if(ch && ch.Address()==%s){WriteLine("C|"+ch.Address()+"|"+ch.Name());}}`, regaQuote(chAddr))
+			channel++
+		}
+	}
+
+	out, err := runReGa(b.String())
+	if err != nil {
+		return false, err
+	}
+
+	names := make(map[string]string)
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSuffix(line, "\r")
+		parts := strings.SplitN(line, "|", 3)
+		if len(parts) != 3 || (parts[0] != "D" && parts[0] != "C") {
+			continue
+		}
+		if strings.TrimSpace(parts[2]) == "" {
+			continue
+		}
+		names[parts[0]+"|"+parts[1]] = parts[2]
+	}
+
+	changed := false
+	for di := range cfg.Devices {
+		d := &cfg.Devices[di]
+		addr := deviceAddress(*d)
+		if name, ok := names["D|"+addr]; ok && d.Name != name {
+			d.Name = name
+			changed = true
+		}
+
+		channel := 1
+		for ri := range d.Registers {
+			r := &d.Registers[ri]
+			if !r.Enabled || strings.ToLower(r.DataType) != "bool" || (r.Type != "coil" && r.Type != "discrete") {
+				continue
+			}
+			chAddr := fmt.Sprintf("%s:%d", addr, channel)
+			if name, ok := names["C|"+chAddr]; ok && r.Name != name {
+				r.Name = name
+				changed = true
+			}
+			channel++
+		}
+	}
+	return changed, nil
+}
+
 func ApplyMetadata(cfg *config.Config) error {
 	if cfg == nil {
 		return nil
@@ -409,7 +477,7 @@ func runReGa(script string) (string, error) {
 	if p := bytes.Index(body, []byte("<xml>")); p >= 0 {
 		body = body[:p]
 	}
-	return latin1(body), nil
+	return string(body), nil
 }
 
 func latin1(b []byte) string {
