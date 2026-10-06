@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/WolfHenk/ccu-modbus/internal/config"
 	"github.com/WolfHenk/ccu-modbus/internal/engine"
@@ -477,15 +478,27 @@ func runReGa(script string) (string, error) {
 	if p := bytes.Index(body, []byte("<xml>")); p >= 0 {
 		body = body[:p]
 	}
-	return latin1(body), nil
+	return decodeReGaText(body), nil
 }
 
-func latin1(b []byte) string {
-	r := make([]rune, len(b))
-	for n, c := range b {
-		r[n] = rune(c)
+func decodeReGaText(b []byte) string {
+	var out strings.Builder
+	for len(b) > 0 {
+		if b[0] < utf8.RuneSelf {
+			out.WriteByte(b[0])
+			b = b[1:]
+			continue
+		}
+		r, size := utf8.DecodeRune(b)
+		if r != utf8.RuneError || size > 1 {
+			out.Write(b[:size])
+			b = b[size:]
+			continue
+		}
+		out.WriteRune(rune(b[0]))
+		b = b[1:]
 	}
-	return string(r)
+	return out.String()
 }
 
 func regaQuote(s string) string {
