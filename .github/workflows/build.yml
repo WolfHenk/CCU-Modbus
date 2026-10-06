@@ -38,6 +38,16 @@ jobs:
         shell: bash
         run: |
           VERSION="$(cat VERSION)"
+
+          # A newer main commit may arrive while this run is building. In that
+          # case this run is obsolete and must not try to publish an older
+          # "latest" package on top of the newer commit.
+          git fetch origin main
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+            echo "Newer main commit detected; skip publishing package from obsolete run."
+            exit 0
+          fi
+
           mkdir -p releases
           cp "build/ccu-modbus-${VERSION}.tar.gz" "releases/ccu-modbus-latest.tar.gz"
           git config user.name "github-actions[bot]"
