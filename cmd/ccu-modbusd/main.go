@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -49,6 +50,18 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
+	var configFileMu sync.Mutex
+
+	// ReGa is authoritative for user-visible names changed in the normal CCU UI.
+	// Import those names before the virtual interface can re-apply metadata.
+	configFileMu.Lock()
+	if changed, syncErr := ccuvirtual.SyncNamesFromReGa(cfg); syncErr == nil && changed {
+		if writeErr := config.WriteAtomic(*configPath, cfg); writeErr != nil {
+			log.Printf("ReGa-Namen konnten nicht gespeichert werden: %v", writeErr)
+		}
+	}
+	configFileMu.Unlock()
+
 	eng := engine.New()
 	eng.Start(ctx, cfg)
 	defer eng.Stop()
@@ -70,7 +83,14 @@ func main() {
 	mux.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
+			configFileMu.Lock()
 			current, err := config.Load(*configPath)
+			if err == nil {
+				if changed, syncErr := ccuvirtual.SyncNamesFromReGa(current); syncErr == nil && changed {
+					err = config.WriteAtomic(*configPath, current)
+				}
+			}
+			configFileMu.Unlock()
 			if err != nil {
 				jsonReply(w, http.StatusInternalServerError, map[string]any{"ok": false, "error": err.Error()})
 				return
@@ -88,13 +108,16 @@ func main() {
 				jsonReply(w, http.StatusBadRequest, map[string]any{"ok": false, "error": errs[0].Error()})
 				return
 			}
+			configFileMu.Lock()
 			if err := config.WriteAtomic(*configPath, &next); err != nil {
+				configFileMu.Unlock()
 				jsonReply(w, http.StatusInternalServerError, map[string]any{"ok": false, "error": err.Error()})
 				return
 			}
-			// Synchronize the virtual CCU device model while ReGa is still
-			// connected. The CGI restarts the daemon immediately afterwards.
+			// Keep the write lock until ReGa has received the explicitly saved
+			// names. This prevents the background import from racing the save.
 			virt.ReplaceConfig(&next, eng)
+			configFileMu.Unlock()
 			jsonReply(w, http.StatusOK, map[string]any{"ok": true, "restart_required": true})
 		default:
 			jsonReply(w, http.StatusMethodNotAllowed, map[string]any{"ok": false, "error": "Methode nicht erlaubt"})
@@ -145,6 +168,31 @@ func main() {
 		}
 		jsonReply(w, code, res)
 	})
+
+	// Persist later CCU/ReGa renames without requiring the Modbus page to be
+	// opened. Only names are imported; Modbus addressing and other settings
+	// remain owned by the add-on configuration.
+	go func() {
+		t := time.NewTicker(2 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				configFileMu.Lock()
+				current, loadErr := config.Load(*configPath)
+				if loadErr == nil {
+					if changed, syncErr := ccuvirtual.SyncNamesFromReGa(current); syncErr == nil && changed {
+						if writeErr := config.WriteAtomic(*configPath, current); writeErr != nil {
+							log.Printf("ReGa-Namen konnten nicht gespeichert werden: %v", writeErr)
+						}
+					}
+				}
+				configFileMu.Unlock()
+			}
+		}
+	}()
 
 	server := &http.Server{
 		Addr:              cfg.Listen,
