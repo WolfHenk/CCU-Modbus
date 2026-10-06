@@ -32,28 +32,29 @@ case "$MODE" in
     unmount_ours
     [ -f "$TARGET" ] || exit 0
 
-    TARGET="$TARGET" OVERLAY="$OVERLAY" /usr/bin/tclsh <<'TCL'
-set src $::env(TARGET)
-set dst $::env(OVERLAY)
-source $src
+    # Preserve the complete OpenCCU-generated DEVDB.tcl, including helper
+    # procedures such as DEV_getImagePath. Add only our device description.
+    cp -f "$TARGET" "$OVERLAY"
+    cat >>"$OVERLAY" <<'TCL'
 
-set type "ModBus"
-set path50 "/addons/ccu-modbus/img/modbus-logo-50.png"
-set path250 "/addons/ccu-modbus/img/modbus-logo-250.png"
-
-if {[lsearch -exact $DEV_LIST $type] < 0} {
-    lappend DEV_LIST $type
+# CCU-Modbus runtime device description
+if {[lsearch -exact $DEV_LIST "ModBus"] < 0} {
+    lappend DEV_LIST "ModBus"
 }
-set DEV_DESCRIPTION($type) "Modbus-Gerät"
-set DEV_PATHS($type) [list [list 50 $path50] [list 250 $path250]]
-set DEV_HIGHLIGHT($type) {}
+set DEV_DESCRIPTION(ModBus) "Modbus-Gerät"
+set DEV_PATHS(ModBus) [list \
+    [list 50 "/addons/ccu-modbus/img/modbus-logo-50.png"] \
+    [list 250 "/addons/ccu-modbus/img/modbus-logo-250.png"]]
+set DEV_HIGHLIGHT(ModBus) {}
+TCL
 
-set f [open $dst w]
-puts $f "set DEV_LIST [list $DEV_LIST]"
-puts $f "array set DEV_DESCRIPTION [list [array get DEV_DESCRIPTION]]"
-puts $f "array set DEV_PATHS [list [array get DEV_PATHS]]"
-puts $f "array set DEV_HIGHLIGHT [list [array get DEV_HIGHLIGHT]]"
-close $f
+    # Refuse to mount an incomplete overlay. This protects native WebUI pages
+    # which depend on procedures defined by the generated DEVDB.tcl.
+    OVERLAY="$OVERLAY" /usr/bin/tclsh <<'TCL'
+source $::env(OVERLAY)
+if {[llength [info commands DEV_getImagePath]] != 1} { exit 10 }
+if {[lsearch -exact $DEV_LIST "ModBus"] < 0} { exit 11 }
+if {[DEV_getImagePath "ModBus" 50] ne "/addons/ccu-modbus/img/modbus-logo-50.png"} { exit 12 }
 TCL
 
     mount -o bind "$OVERLAY" "$TARGET"
