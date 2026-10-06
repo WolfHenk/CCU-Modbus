@@ -42,8 +42,10 @@ if {$cmd == "download"} {
         exit 0
     }
     set downloadURL "$rawBase/$sha/releases/ccu-modbus-latest.tar.gz"
-    puts -nonewline "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\n\r\n"
-    puts -nonewline "<html><head><meta http-equiv='refresh' content='0; url=$downloadURL'></head><body></body></html>"
+    puts -nonewline "Status: 302 Found\r\n"
+    puts -nonewline "Location: $downloadURL\r\n"
+    puts -nonewline "Cache-Control: no-store\r\n"
+    puts -nonewline "Content-Type: text/plain; charset=utf-8\r\n\r\n"
     exit 0
 }
 
