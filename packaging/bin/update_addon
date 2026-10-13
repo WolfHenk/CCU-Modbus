@@ -75,5 +75,3 @@ if {[catch {
     exit 1
 }
 exit 0
-
-[executed on device: heizungmaster (5b5b7240-a9a1-40fb-93b0-02cf18a7f5e3)]

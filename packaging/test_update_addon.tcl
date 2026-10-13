@@ -30,5 +30,3 @@ assert {$data(ccu-jack) eq $other} {uninstall damaged CCU-Jack}
 if {[catch {exec tclsh $script delete ccu-modbus} e]} {error "second delete failed: $e"}
 file delete -force -- $path
 puts {PASS: registration, other addons preserved, idempotence, uninstall}
-
-[executed on device: heizungmaster (5b5b7240-a9a1-40fb-93b0-02cf18a7f5e3)]
