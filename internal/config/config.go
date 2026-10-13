@@ -38,7 +38,8 @@ type Register struct {
 	Factor      float64 `json:"factor"`
 	Offset      float64 `json:"offset"`
 	ByteSwap    bool    `json:"byte_swap"`
-	WordSwap    bool    `json:"word_swap"`
+	WordSwap     bool    `json:"word_swap"`
+	DWordSwap    bool    `json:"dword_swap,omitempty"`
 	PollSeconds  int     `json:"poll_seconds"`
 	Unit         string  `json:"unit"`
 	TrueMeansOpen bool   `json:"true_means_open,omitempty"`
@@ -183,12 +184,24 @@ func ValidateRegister(r Register) error {
 		return fmt.Errorf("unbekannter registertyp %q", r.Type)
 	}
 	switch strings.ToLower(r.DataType) {
-	case "bool", "uint16", "int16", "uint32", "int32", "float32":
+	case "bool", "uint16", "int16", "uint32", "int32", "uint64", "int64", "float32":
 	default:
 		return fmt.Errorf("unbekannter datentyp %q", r.DataType)
 	}
 	if (r.Type == "coil" || r.Type == "discrete") && strings.ToLower(r.DataType) != "bool" {
 		return errors.New("coil/discrete erfordert datatype bool")
+	}
+	words := 1
+	if r.Type == "holding" || r.Type == "input" {
+		switch strings.ToLower(r.DataType) {
+		case "uint32", "int32", "float32":
+			words = 2
+		case "uint64", "int64":
+			words = 4
+		}
+	}
+	if int(r.Address)+words-1 > 65535 {
+		return fmt.Errorf("register ab adresse %d mit %d wort(en) ueberschreitet 65535", r.Address, words)
 	}
 	if r.PollSeconds < 1 || r.PollSeconds > 86400 {
 		return fmt.Errorf("poll_seconds %d ist ungueltig", r.PollSeconds)

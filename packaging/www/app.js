@@ -89,15 +89,15 @@ function renderRegisters(){
 }
 function registerIcon(t){return {coil:'img/modbus-output.svg',discrete:'img/modbus-input.svg',holding:'img/modbus-register.svg',input:'img/modbus-input-register.svg'}[t]||'img/modbus-register.svg';}
 function typeName(t){return {holding:'Holding',input:'Input',coil:'Coil',discrete:'Discrete'}[t]||t;}
-function blankRegister(){return {id:'reg-'+Date.now(),name:'',enabled:true,type:'holding',address:0,datatype:'INT16',factor:1,offset:0,byte_swap:false,word_swap:false,poll_seconds:10,unit:''};}
+function blankRegister(){return {id:'reg-'+Date.now(),name:'',enabled:true,type:'holding',address:0,datatype:'INT16',factor:1,offset:0,byte_swap:false,word_swap:false,dword_swap:false,poll_seconds:10,unit:''};}
 function openRegister(idx){
   editRegister=idx;var d=$('deviceDialog')._working,r=idx<0?blankRegister():JSON.parse(JSON.stringify(d.registers[idx]));$('registerDialog')._working=r;$('registerTitle').textContent=idx<0?'Register hinzufügen':'Register bearbeiten';
-  $('rName').value=r.name;$('rType').value=r.type;$('rAddress').value=r.address;$('rDatatype').value=String(r.datatype).toUpperCase();$('rUnit').value=r.unit||'';$('rFactor').value=r.factor;$('rOffset').value=r.offset;$('rPoll').value=r.poll_seconds;$('rByteSwap').checked=r.byte_swap;$('rWordSwap').checked=r.word_swap;$('rEnabled').checked=r.enabled;
+  $('rName').value=r.name;$('rType').value=r.type;$('rAddress').value=r.address;$('rDatatype').value=String(r.datatype).toUpperCase();$('rUnit').value=r.unit||'';$('rFactor').value=r.factor;$('rOffset').value=r.offset;$('rPoll').value=r.poll_seconds;$('rByteSwap').checked=r.byte_swap;$('rWordSwap').checked=r.word_swap;$('rDWordSwap').checked=!!r.dword_swap;$('rEnabled').checked=r.enabled;
   $('registerResult').textContent='';$('deleteRegister').style.visibility=idx<0?'hidden':'visible';
   $('rSeries').checked=false;$('rSeries').disabled=idx>=0;$('rSeriesCount').value=2;syncSeries();syncDatatype();$('registerDialog').showModal();
 }
 function workingRegister(){
-  var r=$('registerDialog')._working;r.name=$('rName').value.trim();r.type=$('rType').value;r.address=Number($('rAddress').value);r.datatype=$('rDatatype').value.toLowerCase();r.unit=$('rUnit').value.trim();r.factor=parseNumber($('rFactor').value,1);r.offset=parseNumber($('rOffset').value,0);r.poll_seconds=Number($('rPoll').value);r.byte_swap=$('rByteSwap').checked;r.word_swap=$('rWordSwap').checked;r.enabled=$('rEnabled').checked;return r;
+  var r=$('registerDialog')._working;r.name=$('rName').value.trim();r.type=$('rType').value;r.address=Number($('rAddress').value);r.datatype=$('rDatatype').value.toLowerCase();r.unit=$('rUnit').value.trim();r.factor=parseNumber($('rFactor').value,1);r.offset=parseNumber($('rOffset').value,0);r.poll_seconds=Number($('rPoll').value);r.byte_swap=$('rByteSwap').checked;r.word_swap=$('rWordSwap').checked;r.dword_swap=$('rDWordSwap').checked;r.enabled=$('rEnabled').checked;return r;
 }
 function parseNumber(v,def){var n=Number(String(v).replace(',','.'));return isFinite(n)?n:def;}
 function numberedName(name,n){
@@ -107,7 +107,7 @@ function numberedName(name,n){
 }
 function registerStride(r){
   if(r.type==='coil'||r.type==='discrete')return 1;
-  return (r.datatype==='int32'||r.datatype==='uint32'||r.datatype==='float32')?2:1;
+  if(r.datatype==='int64'||r.datatype==='uint64')return 4;return (r.datatype==='int32'||r.datatype==='uint32'||r.datatype==='float32')?2:1;
 }
 function syncSeries(){
   var on=$('rSeries').checked;
@@ -129,7 +129,7 @@ $('applyRegister').onclick=function(){
     var count=Number($('rSeriesCount').value);
     if(!Number.isInteger(count)||count<2||count>256){notice('Die Gesamtanzahl muss zwischen 2 und 256 liegen.',true);return;}
     var stride=registerStride(r), start=r.address;
-    if(start+(count-1)*stride>65535){notice('Die Registerserie überschreitet Adresse 65535.',true);return;}
+    if(start+count*stride-1>65535){notice('Die Registerserie überschreitet Adresse 65535.',true);return;}
     for(var n=1;n<=count;n++){
       var x=JSON.parse(JSON.stringify(r));
       x.id='reg-'+Date.now()+'-'+n;
