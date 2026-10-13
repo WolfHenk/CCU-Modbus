@@ -1,47 +1,79 @@
-#!/bin/tclsh
-# Minimaler hm_addons.cfg-Helfer fuer Teststand 1.
-# Aufruf:
-#   update_addon id config-url name desc-en desc-de
-#   update_addon delete id
+#!/usr/bin/env tclsh
+# Register CCU-Modbus in the native Homematic Systemsteuerung menu.
+# Usage: update_addon ID CONFIG_URL NAME DESCRIPTION_EN DESCRIPTION_DE
+#        update_addon delete ID
+# Only the matching add-on ID is changed; unrelated entries are preserved.
 
 set cfg "/usr/local/etc/config/hm_addons.cfg"
-
-proc read_cfg {path} {
-  if {[file exists $path]} {
-    set f [open $path r]
-    set s [read $f]
-    close $f
-    return $s
-  }
-  return ""
+if {[info exists ::env(CCU_MODBUS_HM_ADDONS_CFG)]} {
+    # Testing only; normal installations use the fixed CCU config location.
+    set cfg $::env(CCU_MODBUS_HM_ADDONS_CFG)
 }
 
-proc write_cfg {path data} {
-  set f [open $path w]
-  puts -nonewline $f $data
-  close $f
+if {$argc == 2 && [lindex $argv 0] eq "delete"} {
+    set remove 1
+    set id [lindex $argv 1]
+} elseif {$argc == 5} {
+    set remove 0
+    foreach {id url name description_en description_de} $argv break
+} else {
+    puts stderr "usage: update_addon ID URL NAME DESCRIPTION_EN DESCRIPTION_DE | update_addon delete ID"
+    exit 1
 }
 
-if {$argc < 2} {
-  exit 1
+if {![regexp {^[a-z0-9-]+$} $id]} {
+    puts stderr "invalid add-on ID"
+    exit 1
 }
 
-set mode [lindex $argv 0]
-if {$mode == "delete"} {
-  set id [lindex $argv 1]
-  set data [read_cfg $cfg]
-  set lines [split $data "\n"]
-  set out {}
-  foreach line $lines {
-    if {[string first "id=$id" $line] < 0} {
-      lappend out $line
-    }
-  }
-  write_cfg $cfg [join $out "\n"]
-  exit 0
+if {[file exists $cfg]} {
+    set handle [open $cfg r]
+    fconfigure $handle -encoding utf-8 -translation binary
+    set original [read $handle]
+    close $handle
+} else {
+    set original ""
 }
 
-# Die alte CCU-hm_addons.cfg-Struktur wird im ersten Teststand
-# bewusst nur minimal bedient. Der rc.d Config-Url-Eintrag stellt
-# den Einstellen-Knopf in der Zusatzsoftwareliste bereit.
+# hm_addons.cfg is a Tcl list of alternating addon IDs and property lists.
+# An invalid file must not be silently replaced or truncated.
+if {[catch {array set installed $original} err]} {
+    puts stderr "invalid hm_addons.cfg: $err"
+    exit 1
+}
+
+if {$remove} {
+    if {![info exists installed($id)]} {exit 0}
+    unset installed($id)
+} else {
+    set description [list en [list "<li>$description_en</li>"] de [list "<li>$description_de</li>"]]
+    set entry [list ID $id CONFIG_NAME $name CONFIG_URL $url CONFIG_DESCRIPTION $description]
+    if {[info exists installed($id)] && $installed($id) eq $entry} {exit 0}
+    set installed($id) $entry
+}
+
+# Preserve unrelated key/value pairs; append to the old file when adding a
+# new entry so existing add-ons retain even their original byte layout.
+if {!$remove && [lsearch -exact $original $id] < 0} {
+    set contents "${original}\n[list $id $installed($id)]"
+} else {
+    set contents [array get installed]
+}
+
+set tmp "${cfg}.[pid].tmp"
+if {[catch {
+    set handle [open $tmp w]
+    fconfigure $handle -encoding utf-8 -translation binary
+    puts -nonewline $handle $contents
+    close $handle
+    file attributes $tmp -permissions 0644
+    file rename -force -- $tmp $cfg
+} err]} {
+    catch {close $handle}
+    catch {file delete -- $tmp}
+    puts stderr "could not update hm_addons.cfg: $err"
+    exit 1
+}
 exit 0
+
+[executed on device: heizungmaster (5b5b7240-a9a1-40fb-93b0-02cf18a7f5e3)]
