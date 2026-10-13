@@ -38,7 +38,8 @@ type Register struct {
 	Factor      float64 `json:"factor"`
 	Offset      float64 `json:"offset"`
 	ByteSwap    bool    `json:"byte_swap"`
-	WordSwap    bool    `json:"word_swap"`
+	WordSwap     bool    `json:"word_swap"`
+	DWordSwap    bool    `json:"dword_swap,omitempty"`
 	PollSeconds  int     `json:"poll_seconds"`
 	Unit         string  `json:"unit"`
 	TrueMeansOpen bool   `json:"true_means_open,omitempty"`
@@ -183,7 +184,7 @@ func ValidateRegister(r Register) error {
 		return fmt.Errorf("unbekannter registertyp %q", r.Type)
 	}
 	switch strings.ToLower(r.DataType) {
-	case "bool", "uint16", "int16", "uint32", "int32", "float32":
+	case "bool", "uint16", "int16", "uint32", "int32", "uint64", "int64", "float32":
 	default:
 		return fmt.Errorf("unbekannter datentyp %q", r.DataType)
 	}
