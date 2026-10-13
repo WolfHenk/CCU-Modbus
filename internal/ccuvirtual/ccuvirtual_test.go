@@ -3,6 +3,9 @@ package ccuvirtual
 import (
 	"testing"
 	"unicode/utf8"
+
+	"github.com/mdzio/go-hmccu/itf"
+	"github.com/mdzio/go-hmccu/itf/xmlrpc"
 )
 
 func TestDecodeReGaLegacyLatin1(t *testing.T) {
@@ -27,5 +30,15 @@ func TestDecodeReGaMixedUTF8AndLatin1(t *testing.T) {
 	got := decodeReGaText(raw)
 	if got != "Tür|Tür" {
 		t.Fatalf("decodeReGaText mixed = %q", got)
+	}
+}
+
+func TestSetReadyConfigCompatibilityRPC(t *testing.T) {
+	dispatcher := itf.NewDispatcher()
+	registerCCUCompatibilityMethods(dispatcher)
+
+	args := &xmlrpc.Value{Array: &xmlrpc.Array{Data: []*xmlrpc.Value{}}}
+	if _, err := dispatcher.Dispatch("setReadyConfig", args); err != nil {
+		t.Fatalf("setReadyConfig dispatch failed: %v", err)
 	}
 }

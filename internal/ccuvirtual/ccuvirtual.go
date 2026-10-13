@@ -55,6 +55,7 @@ func Attach(parent context.Context, mux *http.ServeMux, cfg *config.Config, eng 
 
 	dispatcher := itf.NewDispatcher()
 	dispatcher.AddDeviceLayer(h)
+	registerCCUCompatibilityMethods(dispatcher)
 	mux.Handle(RPCPath, &xmlrpc.Handler{Dispatcher: dispatcher})
 
 	in := &Integration{
@@ -75,6 +76,17 @@ func Attach(parent context.Context, mux *http.ServeMux, cfg *config.Config, eng 
 	go in.connectReGa(ctx, cfg)
 	go in.syncLoop(ctx, eng)
 	return in
+}
+
+// registerCCUCompatibilityMethods adds RPC calls OpenCCU expects from a
+// device interface but go-hmccu currently exposes only on its LogicLayer
+// dispatcher. The WebUI inbox calls setReadyConfig when commissioning a new
+// virtual device. CCU-Modbus has no separate pending configuration to commit,
+// so acknowledging the call is sufficient and matches go-hmccu's handler.
+func registerCCUCompatibilityMethods(dispatcher *itf.Dispatcher) {
+	dispatcher.HandleFunc("setReadyConfig", func(*xmlrpc.Value) (*xmlrpc.Value, error) {
+		return &xmlrpc.Value{}, nil
+	})
 }
 
 func (i *Integration) connectReGa(ctx context.Context, cfg *config.Config) {
