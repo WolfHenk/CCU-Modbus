@@ -191,6 +191,18 @@ func ValidateRegister(r Register) error {
 	if (r.Type == "coil" || r.Type == "discrete") && strings.ToLower(r.DataType) != "bool" {
 		return errors.New("coil/discrete erfordert datatype bool")
 	}
+	words := 1
+	if r.Type == "holding" || r.Type == "input" {
+		switch strings.ToLower(r.DataType) {
+		case "uint32", "int32", "float32":
+			words = 2
+		case "uint64", "int64":
+			words = 4
+		}
+	}
+	if int(r.Address)+words-1 > 65535 {
+		return fmt.Errorf("register ab adresse %d mit %d wort(en) ueberschreitet 65535", r.Address, words)
+	}
 	if r.PollSeconds < 1 || r.PollSeconds > 86400 {
 		return fmt.Errorf("poll_seconds %d ist ungueltig", r.PollSeconds)
 	}
