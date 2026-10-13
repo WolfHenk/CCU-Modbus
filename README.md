@@ -47,6 +47,8 @@ Für jeden Datenpunkt werden festgelegt:
   - INT16
   - UINT32
   - INT32
+  - UINT64
+  - INT64
   - FLOAT32
 - **Einheit**
 - **Faktor**
@@ -56,7 +58,7 @@ Für jeden Datenpunkt werden festgelegt:
 
 **Discrete Input** wird in der CCU als neutraler Homematic-Kanal vom Typ `DIGITAL_INPUT` mit einem booleschen `STATE` abgebildet. Dadurch erscheint ein allgemeiner Modbus-Eingang nicht mehr als Tür-/Fensterkontakt. `FALSE` entspricht **inaktiv**, `TRUE` entspricht **aktiv**.
 
-Unter **Erweitert** stehen zusätzlich Byte-Swap und Word-Swap zur Verfügung.
+Unter **Erweitert** stehen zusätzlich Byte-Swap, Word-Swap und für 64-Bit-Werte DWord-Swap zur Verfügung. Byte-Swap vertauscht die beiden Bytes jedes 16-Bit-Registers. Word-Swap vertauscht die beiden 16-Bit-Wörter innerhalb jedes 32-Bit-Blocks. DWord-Swap vertauscht bei 64-Bit-Werten die beiden 32-Bit-Hälften. Die Optionen sind kombinierbar und decken damit die üblichen Herstellerreihenfolgen ab.
 
 Mit **Wert testen** kann ein Register unmittelbar gelesen und die Konfiguration geprüft werden.
 
@@ -84,7 +86,7 @@ Eingang 16  Adresse 15
 
 Alle übrigen Registereinstellungen werden übernommen. Anschließend kann jeder erzeugte Kanal einzeln angepasst werden.
 
-Bei 32-Bit-Datentypen wird die Modbus-Adresse automatisch in Zweierschritten weitergezählt.
+Bei 32-Bit-Datentypen wird die Modbus-Adresse automatisch in Zweierschritten, bei 64-Bit-Datentypen in Viererschritten weitergezählt.
 
 ## Konfiguration speichern
 
@@ -117,7 +119,7 @@ Die Rückmeldungen an die CCU stammen aus dem lokalen Polling-Cache.
 
 **Räume und Gewerke werden ausschließlich in der normalen CCU-Weboberfläche zugeordnet.** CCU-Modbus verändert diese Zuordnungen beim Speichern nicht. Auch bei Änderungen der Modbus-Kanalstruktur werden bestehende CCU-Kanäle nicht mehr als komplettes Gerät ab- und neu angemeldet, damit ihre Raum- und Gewerkzuordnungen erhalten bleiben.
 
-Weitere Registertypen werden bereits von CCU-Modbus gelesen und angezeigt; ihre Abbildung auf zusätzliche CCU-Kanaltypen wird schrittweise erweitert.
+Weitere Registertypen werden bereits von CCU-Modbus gelesen und angezeigt; ihre Abbildung auf zusätzliche CCU-Kanaltypen wird schrittweise erweitert. UINT64-/INT64-Rohwerte werden als Dezimaltext ausgegeben, damit große 64-Bit-Ganzzahlen in der WebUI nicht durch die JavaScript-Zahlendarstellung an Genauigkeit verlieren.
 
 ## Status und Diagnose
 
