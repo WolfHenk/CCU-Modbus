@@ -70,7 +70,7 @@ func Attach(parent context.Context, mux *http.ServeMux, cfg *config.Config, eng 
 	}
 
 	for _, d := range cfg.Devices {
-		in.addDevice(d, eng)
+		in.addDevice(d, deviceAddress(cfg, d), eng)
 	}
 
 	go in.connectReGa(ctx, cfg)
@@ -216,11 +216,11 @@ func (i *Integration) canReuseModel(next *config.Config) bool {
 
 	oldByAddress := make(map[string]config.Device, len(i.current.Devices))
 	for _, d := range i.current.Devices {
-		oldByAddress[deviceAddress(d)] = d
+		oldByAddress[deviceAddress(i.current, d)] = d
 	}
 
 	for _, nd := range next.Devices {
-		od, ok := oldByAddress[deviceAddress(nd)]
+		od, ok := oldByAddress[deviceAddress(next, nd)]
 		if !ok || od.ID != nd.ID {
 			return false
 		}
@@ -275,8 +275,7 @@ func (i *Integration) RemoveAll() {
 	time.Sleep(800 * time.Millisecond)
 }
 
-func (i *Integration) addDevice(d config.Device, eng *engine.Engine) {
-	addr := deviceAddress(d)
+func (i *Integration) addDevice(d config.Device, addr string, eng *engine.Engine) {
 	dev := vdevices.NewDevice(addr, "ModBus", i.handler)
 	vdevices.NewMaintenanceChannel(dev)
 
@@ -383,7 +382,7 @@ func SyncNamesFromReGa(cfg *config.Config) (bool, error) {
 
 	var b strings.Builder
 	for _, d := range cfg.Devices {
-		addr := deviceAddress(d)
+		addr := deviceAddress(cfg, d)
 		fmt.Fprintf(&b, `string did; foreach(did,dom.GetObject(ID_DEVICES).EnumIDs()){object dev=dom.GetObject(did); if(dev && dev.Address()==%s){WriteLine("D|"+dev.Address()+"|"+dev.Name());}}`, regaQuote(addr))
 
 		channel := 1
@@ -418,7 +417,7 @@ func SyncNamesFromReGa(cfg *config.Config) (bool, error) {
 	changed := false
 	for di := range cfg.Devices {
 		d := &cfg.Devices[di]
-		addr := deviceAddress(*d)
+		addr := deviceAddress(cfg, *d)
 		if name, ok := names["D|"+addr]; ok && d.Name != name {
 			d.Name = name
 			changed = true
@@ -448,7 +447,7 @@ func ApplyMetadata(cfg *config.Config) error {
 
 	var b strings.Builder
 	for _, d := range cfg.Devices {
-		addr := deviceAddress(d)
+		addr := deviceAddress(cfg, d)
 
 		// ReGa object names are user-visible and may differ from the interface
 		// address. Resolve virtual devices/channels by their stable HSS address.
@@ -521,9 +520,58 @@ func regaQuote(s string) string {
 	return "\"" + s + "\""
 }
 
-func deviceAddress(d config.Device) string {
-	// User-visible HSS serial: "Mod" plus the last eight digits of the
-	// zero-padded IPv4 address. Example: 192.168.3.207 ->
+func deviceAddress(cfg *config.Config, d config.Device) string {
+	base := legacyDeviceAddress(d)
+	if cfg == nil {
+		return base
+	}
+
+	// Keep the historic address unchanged while it is unique. This preserves
+	// already commissioned CCU devices and therefore their ISE IDs, programs,
+	// rooms and trades. Only when two configured Modbus devices would collide
+	// on the historic address do we include port and Unit-ID.
+	count := 0
+	for _, other := range cfg.Devices {
+		if legacyDeviceAddress(other) == base {
+			count++
+		}
+	}
+	if count <= 1 {
+		return base
+	}
+
+	port := d.Port
+	if port == 0 {
+		port = 502
+	}
+	addr := fmt.Sprintf("%sP%dU%d", base, port, d.UnitID)
+
+	// Same IP/legacy base, port and Unit-ID can still occur when a user splits
+	// one endpoint across multiple logical devices. In that case the persistent
+	// config ID provides the final discriminator.
+	sameEndpoint := 0
+	for _, other := range cfg.Devices {
+		op := other.Port
+		if op == 0 {
+			op = 502
+		}
+		if legacyDeviceAddress(other) == base && op == port && other.UnitID == d.UnitID {
+			sameEndpoint++
+		}
+	}
+	if sameEndpoint > 1 {
+		id := cleanToken(d.ID)
+		if id == "" {
+			id = "DEVICE"
+		}
+		addr += "I" + id
+	}
+	return addr
+}
+
+func legacyDeviceAddress(d config.Device) string {
+	// Historic user-visible HSS serial: "Mod" plus the last eight digits of
+	// the zero-padded IPv4 address. Example: 192.168.3.207 ->
 	// 192168003207 -> Mod68003207.
 	if ip := net.ParseIP(strings.TrimSpace(d.Host)); ip != nil {
 		if v4 := ip.To4(); v4 != nil {
