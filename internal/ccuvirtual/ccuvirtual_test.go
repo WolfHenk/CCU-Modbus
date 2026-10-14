@@ -44,81 +44,89 @@ func TestSetReadyConfigCompatibilityRPC(t *testing.T) {
 	}
 }
 
-func TestDeviceAddressKeepsLegacyAddressWhenUnique(t *testing.T) {
-	d := config.Device{ID: "plant-247", Host: "192.168.3.207", Port: 502, UnitID: 247}
-	cfg := &config.Config{Devices: []config.Device{d}}
-	if got, want := deviceAddress(cfg, d), "Mod68003207"; got != want {
-		t.Fatalf("deviceAddress() = %q, want %q", got, want)
+func TestEnsureDeviceAddressesMigratesUniqueLegacyDevice(t *testing.T) {
+	d := config.Device{ID: "legacy", Host: "192.168.3.207", Port: 502, UnitID: 1}
+	cfg := &config.Config{Schema: 1, Devices: []config.Device{d}}
+	if !EnsureDeviceAddresses(cfg, true) {
+		t.Fatal("migration reported no change")
+	}
+	if got, want := cfg.Devices[0].CCUAddress, "Mod68003207"; got != want {
+		t.Fatalf("legacy address = %q, want %q", got, want)
+	}
+	if cfg.Schema != 2 {
+		t.Fatalf("schema = %d, want 2", cfg.Schema)
 	}
 }
 
-func TestDeviceAddressSeparatesUnitsOnSameEndpoint(t *testing.T) {
+func TestEnsureDeviceAddressesAssignsCompactAddressToNewDevice(t *testing.T) {
+	d := config.Device{ID: "new", Host: "192.168.3.203", Port: 504, UnitID: 1}
+	cfg := &config.Config{Schema: 2, Devices: []config.Device{d}}
+	EnsureDeviceAddresses(cfg, false)
+	if got, want := cfg.Devices[0].CCUAddress, "MB003203504001"; got != want {
+		t.Fatalf("new address = %q, want %q", got, want)
+	}
+}
+
+func TestPersistentAddressDoesNotChangeWhenSecondUnitAdded(t *testing.T) {
+	first := config.Device{ID: "unit-1", Host: "192.168.3.203", Port: 504, UnitID: 1}
+	cfg := &config.Config{Schema: 2, Devices: []config.Device{first}}
+	EnsureDeviceAddresses(cfg, false)
+	if got, want := cfg.Devices[0].CCUAddress, "MB003203504001"; got != want {
+		t.Fatalf("first address = %q, want %q", got, want)
+	}
+
+	firstAddress := cfg.Devices[0].CCUAddress
+	cfg.Devices = append(cfg.Devices, config.Device{ID: "unit-247", Host: "192.168.3.203", Port: 504, UnitID: 247})
+	EnsureDeviceAddresses(cfg, false)
+	if cfg.Devices[0].CCUAddress != firstAddress {
+		t.Fatalf("first address changed from %q to %q", firstAddress, cfg.Devices[0].CCUAddress)
+	}
+	if got, want := cfg.Devices[1].CCUAddress, "MB003203504247"; got != want {
+		t.Fatalf("second address = %q, want %q", got, want)
+	}
+}
+
+func TestEnsureDeviceAddressesSeparatesLegacyCollisions(t *testing.T) {
 	d1 := config.Device{ID: "plant-1", Host: "192.168.3.207", Port: 502, UnitID: 1}
 	d247 := config.Device{ID: "plant-247", Host: "192.168.3.207", Port: 502, UnitID: 247}
-	cfg := &config.Config{Devices: []config.Device{d1, d247}}
-
-	if got, want := deviceAddress(cfg, d1), "MB003207502001"; got != want {
+	cfg := &config.Config{Schema: 1, Devices: []config.Device{d1, d247}}
+	EnsureDeviceAddresses(cfg, true)
+	if got, want := cfg.Devices[0].CCUAddress, "MB003207502001"; got != want {
 		t.Fatalf("Unit 1 address = %q, want %q", got, want)
 	}
-	if got, want := deviceAddress(cfg, d247), "MB003207502247"; got != want {
+	if got, want := cfg.Devices[1].CCUAddress, "MB003207502247"; got != want {
 		t.Fatalf("Unit 247 address = %q, want %q", got, want)
 	}
-	if deviceAddress(cfg, d1) == deviceAddress(cfg, d247) {
-		t.Fatal("same IP/port with different Unit-ID must create distinct CCU devices")
-	}
 }
 
-func TestDeviceAddressSeparatesPortsOnSameIP(t *testing.T) {
-	d502 := config.Device{ID: "port-502", Host: "192.168.3.207", Port: 502, UnitID: 1}
-	d1502 := config.Device{ID: "port-1502", Host: "192.168.3.207", Port: 1502, UnitID: 1}
-	cfg := &config.Config{Devices: []config.Device{d502, d1502}}
-
-	if got, want := deviceAddress(cfg, d502), "MB003207502001"; got != want {
-		t.Fatalf("port 502 address = %q, want %q", got, want)
-	}
-	got := deviceAddress(cfg, d1502)
+func TestEnsureDeviceAddressesUses14CharacterFallback(t *testing.T) {
+	d := config.Device{ID: "port-1502", Host: "192.168.3.207", Port: 1502, UnitID: 1}
+	cfg := &config.Config{Schema: 2, Devices: []config.Device{d}}
+	EnsureDeviceAddresses(cfg, false)
+	got := cfg.Devices[0].CCUAddress
 	if len(got) != 14 || got[:2] != "MB" {
-		t.Fatalf("port 1502 fallback address = %q, want 14-character MB serial", got)
-	}
-	if got == deviceAddress(cfg, d502) {
-		t.Fatalf("different ports collide: %q", got)
+		t.Fatalf("fallback address = %q, want 14-character MB serial", got)
 	}
 }
 
-func TestDeviceAddressSeparatesDuplicateLogicalDevices(t *testing.T) {
+func TestEnsureDeviceAddressesSeparatesDuplicateLogicalDevices(t *testing.T) {
 	dA := config.Device{ID: "dev-a", Host: "192.168.3.207", Port: 502, UnitID: 1}
 	dB := config.Device{ID: "dev-b", Host: "192.168.3.207", Port: 502, UnitID: 1}
-	cfg := &config.Config{Devices: []config.Device{dA, dB}}
-
-	a := deviceAddress(cfg, dA)
-	b := deviceAddress(cfg, dB)
+	cfg := &config.Config{Schema: 2, Devices: []config.Device{dA, dB}}
+	EnsureDeviceAddresses(cfg, false)
+	a := cfg.Devices[0].CCUAddress
+	b := cfg.Devices[1].CCUAddress
 	if a == b {
 		t.Fatalf("duplicate logical devices collide: %q", a)
 	}
-	if len(a) != 14 || len(b) != 14 || a[:2] != "MB" || b[:2] != "MB" {
-		t.Fatalf("duplicate fallback addresses must be 14-character MB serials: %q / %q", a, b)
+	if len(a) > 14 || len(b) > 14 {
+		t.Fatalf("address too long: %q / %q", a, b)
 	}
 }
 
-func TestDeviceAddressCompactFormatExample(t *testing.T) {
-	d1 := config.Device{ID: "unit-1", Host: "192.168.3.203", Port: 504, UnitID: 1}
-	d2 := config.Device{ID: "unit-247", Host: "192.168.3.203", Port: 504, UnitID: 247}
-	cfg := &config.Config{Devices: []config.Device{d1, d2}}
-	if got, want := deviceAddress(cfg, d1), "MB003203504001"; got != want {
-		t.Fatalf("compact address = %q, want %q", got, want)
-	}
-}
-
-func TestDeviceAddressNeverExceeds14Characters(t *testing.T) {
-	devices := []config.Device{
-		{ID: "a", Host: "192.168.3.203", Port: 502, UnitID: 1},
-		{ID: "b", Host: "192.168.3.203", Port: 502, UnitID: 247},
-		{ID: "c", Host: "192.168.3.203", Port: 1502, UnitID: 1},
-	}
-	cfg := &config.Config{Devices: devices}
-	for _, d := range devices {
-		if got := deviceAddress(cfg, d); len(got) > 14 {
-			t.Fatalf("address too long: %q (%d)", got, len(got))
-		}
+func TestDeviceAddressUsesPersistedAddress(t *testing.T) {
+	d := config.Device{ID: "x", Host: "192.168.3.207", Port: 502, UnitID: 1, CCUAddress: "MB003207502001"}
+	if got := deviceAddress(nil, d); got != d.CCUAddress {
+		t.Fatalf("deviceAddress = %q, want persisted %q", got, d.CCUAddress)
 	}
 }

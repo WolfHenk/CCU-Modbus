@@ -39,6 +39,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("Konfiguration kann nicht geladen werden: %v", err)
 	}
+	// Migrate old configurations once. Existing unique devices keep their
+	// historic CCU address; colliding legacy devices receive compact addresses.
+	if ccuvirtual.EnsureDeviceAddresses(cfg, true) {
+		if err := config.WriteAtomic(*configPath, cfg); err != nil {
+			log.Fatalf("Geräteadressen konnten nicht migriert werden: %v", err)
+		}
+	}
 	if *check {
 		if errs := config.Validate(cfg); len(errs) > 0 {
 			log.Fatalf("Konfiguration ungueltig: %v", errs[0])
@@ -104,6 +111,10 @@ func main() {
 				return
 			}
 			config.ApplyDefaults(&next)
+			// Devices newly created in schema 2 have no address yet. Assign their
+			// final compact CCU serial before validation/persistence so it never
+			// changes when another unit on the same host is added later.
+			ccuvirtual.EnsureDeviceAddresses(&next, false)
 			if errs := config.Validate(&next); len(errs) > 0 {
 				jsonReply(w, http.StatusBadRequest, map[string]any{"ok": false, "error": errs[0].Error()})
 				return

@@ -28,7 +28,7 @@ Unter **Erweitert** können Timeout, Anzahl der Wiederholungsversuche und der Ge
 
 Mit **Verbindung testen** kann geprüft werden, ob das Gerät erreichbar ist.
 
-Mehrere Modbus-Geräte dürfen dieselbe IP-Adresse verwenden. Wenn die bisherige CCU-Geräteadresse dadurch kollidieren würde, erzeugt CCU-Modbus eine kompakte, höchstens 14-stellige Geräteadresse aus den letzten beiden IP-Oktetten, Port und Unit-ID, z. B. `MB003203504001` für `...3.203`, Port `504`, Unit-ID `1`. Solange eine Geräteadresse eindeutig ist, bleibt das bisherige Seriennummernschema unverändert, damit bestehende CCU-Geräte ihre Identität behalten.
+Neue Modbus-Geräte erhalten ab Version 0.1.27 eine dauerhaft gespeicherte, höchstens 14-stellige CCU-Geräteadresse aus den letzten beiden IP-Oktetten, Port und Unit-ID, z. B. `MB003203504001` für `...3.203`, Port `504`, Unit-ID `1`. Diese Adresse bleibt unverändert, wenn später weitere Units auf derselben IP hinzukommen. Bereits vor 0.1.27 vorhandene, eindeutige Geräte behalten bei der Migration ihre bisherige Seriennummer, damit bestehende ISE-IDs, Programme, Räume und Gewerke nicht unnötig verändert werden.
 
 ## Register, Eingänge und Ausgänge anlegen
 

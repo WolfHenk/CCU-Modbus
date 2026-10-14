@@ -520,55 +520,74 @@ func regaQuote(s string) string {
 	return "\"" + s + "\""
 }
 
-func deviceAddress(cfg *config.Config, d config.Device) string {
-	base := legacyDeviceAddress(d)
+func EnsureDeviceAddresses(cfg *config.Config, preserveLegacy bool) bool {
 	if cfg == nil {
-		return base
+		return false
 	}
-
-	// Keep the historic address unchanged while it is unique. This preserves
-	// already commissioned CCU devices and therefore their ISE IDs, programs,
-	// rooms and trades. Only when two configured Modbus devices would collide
-	// on the historic address do we include port and Unit-ID.
-	count := 0
-	for _, other := range cfg.Devices {
-		if legacyDeviceAddress(other) == base {
-			count++
+	changed := false
+	for i := range cfg.Devices {
+		d := &cfg.Devices[i]
+		if strings.TrimSpace(d.CCUAddress) != "" {
+			continue
 		}
+		if preserveLegacy {
+			base := legacyDeviceAddress(*d)
+			count := 0
+			for _, other := range cfg.Devices {
+				if legacyDeviceAddress(other) == base {
+					count++
+				}
+			}
+			if count <= 1 {
+				d.CCUAddress = base
+				changed = true
+				continue
+			}
+		}
+		d.CCUAddress = compactDeviceAddress(cfg, *d)
+		changed = true
 	}
-	if count <= 1 {
-		return base
+	if cfg.Schema < 2 {
+		cfg.Schema = 2
+		changed = true
 	}
+	return changed
+}
 
+func deviceAddress(_ *config.Config, d config.Device) string {
+	if addr := strings.TrimSpace(d.CCUAddress); addr != "" {
+		return addr
+	}
+	return compactDeviceAddress(nil, d)
+}
+
+func compactDeviceAddress(cfg *config.Config, d config.Device) string {
 	port := d.Port
 	if port == 0 {
 		port = 502
 	}
 
-	// ReGa/Homematic device addresses are normally at most 14 characters.
-	// For colliding IPv4 devices use a compact, readable 14-character serial:
-	// MB + third octet + fourth octet + port + Unit-ID, each zero-padded to
-	// three decimal digits. Example 192.168.3.203:504 Unit 1 ->
-	// MB003203504001.
 	if ip := net.ParseIP(strings.TrimSpace(d.Host)); ip != nil && port <= 999 {
 		if v4 := ip.To4(); v4 != nil {
 			addr := fmt.Sprintf("MB%03d%03d%03d%03d", v4[2], v4[3], port, d.UnitID)
-			if shortAddressUnique(cfg, d, addr) {
+			if compactAddressUnique(cfg, d, addr) {
 				return addr
 			}
 		}
 	}
-
-	// Unusual ports above 999, host names, or a collision of the compact
-	// readable form use a deterministic 14-character fallback derived from the
-	// complete endpoint plus persistent config ID.
 	return shortHashedAddress(d, port)
 }
 
-func shortAddressUnique(cfg *config.Config, d config.Device, candidate string) bool {
+func compactAddressUnique(cfg *config.Config, d config.Device, candidate string) bool {
+	if cfg == nil {
+		return true
+	}
 	for _, other := range cfg.Devices {
 		if other.ID == d.ID {
 			continue
+		}
+		if strings.TrimSpace(other.CCUAddress) == candidate {
+			return false
 		}
 		op := other.Port
 		if op == 0 {
@@ -582,8 +601,7 @@ func shortAddressUnique(cfg *config.Config, d config.Device, candidate string) b
 		if v4 == nil {
 			continue
 		}
-		otherCandidate := fmt.Sprintf("MB%03d%03d%03d%03d", v4[2], v4[3], op, other.UnitID)
-		if otherCandidate == candidate {
+		if fmt.Sprintf("MB%03d%03d%03d%03d", v4[2], v4[3], op, other.UnitID) == candidate {
 			return false
 		}
 	}
@@ -591,9 +609,6 @@ func shortAddressUnique(cfg *config.Config, d config.Device, candidate string) b
 }
 
 func shortHashedAddress(d config.Device, port int) string {
-	// FNV-1a 64-bit is used only as a compact identity encoding, not for
-	// cryptographic purposes. Twelve hex digits plus the MB prefix fit exactly
-	// into the 14-character CCU address limit.
 	h := uint64(14695981039346656037)
 	for _, b := range []byte(fmt.Sprintf("%s|%d|%d|%s", strings.TrimSpace(d.Host), port, d.UnitID, d.ID)) {
 		h ^= uint64(b)

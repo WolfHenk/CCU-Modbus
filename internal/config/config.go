@@ -17,34 +17,35 @@ type Config struct {
 }
 
 type Device struct {
-	ID        string     `json:"id"`
-	Name      string     `json:"name"`
-	Enabled   bool       `json:"enabled"`
-	Host      string     `json:"host"`
-	Port      int        `json:"port"`
-	UnitID    int        `json:"unit_id"`
-	TimeoutMS int        `json:"timeout_ms"`
-	Retries   int        `json:"retries"`
-	Registers []Register `json:"registers"`
+	ID         string     `json:"id"`
+	Name       string     `json:"name"`
+	Enabled    bool       `json:"enabled"`
+	Host       string     `json:"host"`
+	Port       int        `json:"port"`
+	UnitID     int        `json:"unit_id"`
+	CCUAddress string     `json:"ccu_address,omitempty"`
+	TimeoutMS  int        `json:"timeout_ms"`
+	Retries    int        `json:"retries"`
+	Registers  []Register `json:"registers"`
 }
 
 type Register struct {
-	ID          string  `json:"id"`
-	Name        string  `json:"name"`
-	Enabled     bool    `json:"enabled"`
-	Type        string  `json:"type"`
-	Address     uint16  `json:"address"`
-	DataType    string  `json:"datatype"`
-	Factor      float64 `json:"factor"`
-	Offset      float64 `json:"offset"`
-	ByteSwap    bool    `json:"byte_swap"`
-	WordSwap     bool    `json:"word_swap"`
-	DWordSwap    bool    `json:"dword_swap,omitempty"`
-	PollSeconds  int     `json:"poll_seconds"`
-	Unit         string  `json:"unit"`
-	TrueMeansOpen bool   `json:"true_means_open,omitempty"`
-	RoomID        int    `json:"room_id,omitempty"`
-	FunctionID    int    `json:"function_id,omitempty"`
+	ID            string  `json:"id"`
+	Name          string  `json:"name"`
+	Enabled       bool    `json:"enabled"`
+	Type          string  `json:"type"`
+	Address       uint16  `json:"address"`
+	DataType      string  `json:"datatype"`
+	Factor        float64 `json:"factor"`
+	Offset        float64 `json:"offset"`
+	ByteSwap      bool    `json:"byte_swap"`
+	WordSwap      bool    `json:"word_swap"`
+	DWordSwap     bool    `json:"dword_swap,omitempty"`
+	PollSeconds   int     `json:"poll_seconds"`
+	Unit          string  `json:"unit"`
+	TrueMeansOpen bool    `json:"true_means_open,omitempty"`
+	RoomID        int     `json:"room_id,omitempty"`
+	FunctionID    int     `json:"function_id,omitempty"`
 }
 
 func Load(path string) (*Config, error) {
@@ -123,6 +124,7 @@ func (d Device) Timeout() time.Duration {
 func Validate(c *Config) []error {
 	var out []error
 	ids := map[string]bool{}
+	addresses := map[string]bool{}
 	for i, d := range c.Devices {
 		for _, err := range ValidateDevice(d) {
 			out = append(out, fmt.Errorf("Geraet %d: %w", i+1, err))
@@ -131,6 +133,12 @@ func Validate(c *Config) []error {
 			out = append(out, fmt.Errorf("Geraete-ID %q ist doppelt", d.ID))
 		}
 		ids[d.ID] = true
+		if addr := strings.TrimSpace(d.CCUAddress); addr != "" {
+			if addresses[addr] {
+				out = append(out, fmt.Errorf("CCU-Geraeteadresse %q ist doppelt", addr))
+			}
+			addresses[addr] = true
+		}
 		rids := map[string]bool{}
 		for n, r := range d.Registers {
 			if err := ValidateRegister(r); err != nil {
@@ -161,6 +169,9 @@ func ValidateDevice(d Device) []error {
 	}
 	if d.UnitID < 0 || d.UnitID > 255 {
 		out = append(out, fmt.Errorf("unit_id %d ist ungueltig", d.UnitID))
+	}
+	if len(strings.TrimSpace(d.CCUAddress)) > 14 {
+		out = append(out, fmt.Errorf("ccu_address %q ist laenger als 14 Zeichen", d.CCUAddress))
 	}
 	if d.TimeoutMS < 100 || d.TimeoutMS > 30000 {
 		out = append(out, fmt.Errorf("timeout_ms %d ist ungueltig", d.TimeoutMS))
