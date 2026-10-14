@@ -33,7 +33,6 @@ func TestDecodeWordSwapFloat32(t *testing.T) {
 	}
 }
 
-
 func TestQuantity64Bit(t *testing.T) {
 	for _, dt := range []string{"uint64", "int64"} {
 		r := config.Register{Type: "holding", DataType: dt}
@@ -126,5 +125,23 @@ func TestDecodeUINT64SwapCombinations(t *testing.T) {
 				t.Fatalf("raw=%v value=%v, want %s", raw, value, want)
 			}
 		})
+	}
+}
+
+func TestDecodeBytesHighLow(t *testing.T) {
+	cases := []struct {
+		dt   string
+		swap bool
+		want float64
+	}{{"uint8", false, 254}, {"uint8", true, 127}, {"int8", false, -2}, {"int8", true, 127}}
+	for _, tc := range cases {
+		r := config.Register{Type: "holding", DataType: tc.dt, ByteSwap: tc.swap, Factor: 1}
+		_, v, e := decode(r, []byte{0x7f, 0xfe})
+		if e != nil {
+			t.Fatal(e)
+		}
+		if v != tc.want {
+			t.Errorf("%s swap=%v: got %v, want %v", tc.dt, tc.swap, v, tc.want)
+		}
 	}
 }

@@ -285,7 +285,7 @@ func virtualChannelSignature(d config.Device) []string {
 			continue
 		}
 		switch strings.ToLower(r.DataType) {
-		case "uint16", "int16", "uint32", "int32", "float32", "uint64", "int64":
+		case "uint8", "int8", "uint16", "int16", "uint32", "int32", "float32", "uint64", "int64":
 			out = append(out, r.Type+"|"+r.ID+"|"+strings.ToLower(r.DataType))
 		}
 	}
@@ -356,7 +356,7 @@ func (i *Integration) addDevice(d config.Device, addr string, eng *engine.Engine
 		typ := strings.ToLower(r.DataType)
 		key := switchKey{deviceID: d.ID, registerID: r.ID}
 		switch typ {
-		case "uint16", "int16", "uint32", "int32", "float32":
+		case "uint8", "int8", "uint16", "int16", "uint32", "int32", "float32":
 			ch := &vdevices.Channel{}
 			ch.Init("ANALOG_INPUT_TRANSMITTER")
 			dev.AddChannel(ch)
@@ -566,7 +566,7 @@ func ApplyMetadata(cfg *config.Config) error {
 				continue
 			}
 			switch strings.ToLower(r.DataType) {
-			case "uint16", "int16", "uint32", "int32", "float32", "uint64", "int64":
+			case "uint8", "int8", "uint16", "int16", "uint32", "int32", "float32", "uint64", "int64":
 				chAddr := fmt.Sprintf("%s:%d", addr, channel)
 				fmt.Fprintf(&b, `string cid; foreach(cid,dom.GetObject(ID_CHANNELS).EnumIDs()){object ch=dom.GetObject(cid); if(ch && ch.Address()==%s){ch.Name(%s);}}`, regaQuote(chAddr), regaQuote(r.Name))
 				channel++

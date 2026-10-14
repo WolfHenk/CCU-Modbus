@@ -196,7 +196,7 @@ func ValidateRegister(r Register) error {
 		return fmt.Errorf("unbekannter registertyp %q", r.Type)
 	}
 	switch strings.ToLower(r.DataType) {
-	case "bool", "uint16", "int16", "uint32", "int32", "uint64", "int64", "float32":
+	case "bool", "uint8", "int8", "uint16", "int16", "uint32", "int32", "uint64", "int64", "float32":
 	default:
 		return fmt.Errorf("unbekannter datentyp %q", r.DataType)
 	}

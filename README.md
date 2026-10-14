@@ -4,6 +4,10 @@ CCU-Modbus ist eine Zusatzsoftware für CCU/OpenCCU, mit der Modbus-TCP-Geräte 
 
 Die Konfiguration erfolgt vollständig über die WebUI der CCU. Es ist keine Cloud, keine externe Datenbank und kein zusätzlicher Server erforderlich.
 
+## 8-Bit-Register (ab 0.1.31)
+
+Fuer UINT8/INT8 liest das Add-on genau ein Modbus-16-Bit-Register. Standardmaessig wird dessen niederwertiges Byte verwendet; mit der bestehenden Option **Byte-Swap** das hoeherwertige Byte. INT8 wird als vorzeichenbehaftete Zweierkomplementzahl interpretiert. Beide Datentypen erscheinen wie 16- und 32-Bit-Werte numerisch in der CCU. Die Modbus-Adressierung bleibt wortbasiert.
+
 ## Numerische CCU-Register (ab 0.1.30)
 
 Input- und Holding-Register mit UINT16, INT16, UINT32, INT32 oder FLOAT32 erhalten einen lesbaren numerischen CCU-Datenpunkt `VOLTAGE` (FLOAT). Die Bezeichnung `VOLTAGE` ist durch die verwendete Homematic-Kanalvorlage vorgegeben und bezeichnet keine physikalische Spannung; der Wert bleibt der konfigurierte Modbus-Messwert. UINT64 und INT64 erhalten wegen der begrenzten IEEE-754-FLOAT-Genauigkeit stattdessen einen lesbaren CCU-Datenpunkt `VALUE` (STRING) mit exakter Dezimaldarstellung bei Faktor 1 und Offset 0. Bei skalierten 64-Bit-Werten gilt weiterhin die bereits vorhandene FLOAT-Berechnung im Modbus-Kern. Bestehende binaere Kanaele behalten ihre Kanalnummern. Die praktische CCU-Darstellung ist separat zu pruefen.

@@ -74,6 +74,12 @@ func decode(r config.Register, data []byte) (any, any, error) {
 	apply := func(v float64) float64 { return v*factor + r.Offset }
 
 	switch strings.ToLower(r.DataType) {
+	case "uint8":
+		raw := buf[1] // low byte of the 16-bit Modbus register, after optional byte swap
+		return raw, apply(float64(raw)), nil
+	case "int8":
+		raw := int8(buf[1])
+		return raw, apply(float64(raw)), nil
 	case "uint16":
 		raw := binary.BigEndian.Uint16(buf)
 		return raw, apply(float64(raw)), nil
