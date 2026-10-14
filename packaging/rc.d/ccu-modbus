@@ -133,10 +133,10 @@ stop_daemon() {
 
 case "$1" in
   init)
+    # Early boot: ReGa and network services may not exist yet.
+    # Never start the virtual-device daemon before S98StartAddons.
     ensure_interface
     [ -x "$BASE/bin/register_devtype" ] && "$BASE/bin/register_devtype" install >/dev/null 2>&1 || true
-    start_daemon
-    refresh_addon_versions
     ;;
   start|"")
     ensure_interface

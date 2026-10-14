@@ -3,6 +3,7 @@ name: build
 on:
   push:
     branches: [ main ]
+    tags: [ "v*" ]
     paths-ignore:
       - 'releases/**'
       - 'README.md'
@@ -66,3 +67,13 @@ jobs:
             git commit -m "Pin download link for ${VERSION} [skip ci]"
             git push
           fi
+
+      - name: Publish versioned release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(cat VERSION)"
+          test "${GITHUB_REF_NAME}" = "v${VERSION}"
+          sha256sum "build/ccu-modbus-${VERSION}.tar.gz" > "build/ccu-modbus-${VERSION}.tar.gz.sha256"
+          gh release create "${GITHUB_REF_NAME}" "build/ccu-modbus-${VERSION}.tar.gz" "build/ccu-modbus-${VERSION}.tar.gz.sha256" --title "CCU-Modbus ${VERSION}" --generate-notes --latest

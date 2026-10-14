@@ -183,3 +183,6 @@ Copyright © 2026 Wolfram Henkel
 ### Development policy
 
 Development, tests, packaging, commits, and pushes are performed **locally on `heizungmaster`**, in `/home/wolfram/CCU-Modbus`. GitHub is used solely as the published Git remote; changes must **never be authored or edited directly on GitHub**. See [AGENTS.md](AGENTS.md).
+
+### Releaseverfahren ab 0.1.32
+Die in der CCU angebotenen Updates basieren auf veröffentlichten GitHub-Releases. Releases werden aus Tags vX.Y.Z gebaut. Das rc.d-init registriert die Schnittstelle, der Daemon startet erst in start. Für ReGaHSS bleiben zusätzliche Installationstests auf realer Hardware erforderlich.
