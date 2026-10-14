@@ -7,6 +7,7 @@ test:
 	go mod tidy
 	go test ./...
 	go vet ./...
+	python3 packaging/test_refresh_addon_versions.py
 	node --check packaging/www/app.js
 	! grep -Eq 'v=0\.1\.[0-9]+|class="version">0\.1\.[0-9]+' packaging/www/index.cgi
 

@@ -164,3 +164,6 @@ Private, gemeinnützige und sonstige nichtkommerzielle Nutzung ist erlaubt. Komm
 Der Name **Modbus** und das Modbus-Logo sind fremde Marken bzw. Assets und werden durch die CCU-Modbus-Lizenz nicht mitlizenziert. Einzelheiten stehen in `LICENSE` und `THIRD_PARTY_NOTICES`.
 
 Copyright © 2026 Wolfram Henkel
+### Development policy
+
+Development, tests, packaging, commits, and pushes are performed **locally on `heizungmaster`**, in `/home/wolfram/CCU-Modbus`. GitHub is used solely as the published Git remote; changes must **never be authored or edited directly on GitHub**. See [AGENTS.md](AGENTS.md).

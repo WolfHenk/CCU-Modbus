@@ -6,6 +6,26 @@ BIN=$BASE/bin/ccu-modbusd
 CONF=/usr/local/etc/config/addons/$ADDON/config.json
 PID=/var/run/$ADDON.pid
 INTERFACES=/etc/config/InterfacesList.xml
+REFRESH_PENDING=/usr/local/etc/config/addons/$ADDON/addon_updates_refresh.pending
+REFRESH_CHECKER=/bin/checkAddonUpdates.sh
+REFRESH_LOCK=/tmp/ccu-modbus-addon-refresh.lock
+REFRESH_DELAY=3
+
+# Run the system's existing updater once after installing a package. The
+# marker is persistent, so first installations requiring a reboot are covered.
+# flock avoids running duplicate checks if start/init occurs repeatedly.
+refresh_addon_versions() {
+  [ -f "$REFRESH_PENDING" ] || return 0
+  [ -x "$REFRESH_CHECKER" ] || return 0
+  (
+    exec 9>"$REFRESH_LOCK" || exit 0
+    flock -n 9 || exit 0
+    sleep "$REFRESH_DELAY"
+    if "$REFRESH_CHECKER" >/dev/null 2>&1; then
+      rm -f "$REFRESH_PENDING"
+    fi
+  ) </dev/null >/dev/null 2>&1 &
+}
 
 ensure_interface() {
   [ -f "$INTERFACES" ] || return 0
@@ -116,11 +136,16 @@ case "$1" in
     ensure_interface
     [ -x "$BASE/bin/register_devtype" ] && "$BASE/bin/register_devtype" install >/dev/null 2>&1 || true
     start_daemon
+    refresh_addon_versions
     ;;
   start|"")
     ensure_interface
     [ -x "$BASE/bin/register_devtype" ] && "$BASE/bin/register_devtype" install >/dev/null 2>&1 || true
     start_daemon
+    refresh_addon_versions
+    ;;
+  refresh-addon-versions)
+    refresh_addon_versions
     ;;
   stop)
     stop_daemon

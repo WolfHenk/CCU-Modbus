@@ -77,7 +77,12 @@ if [ -f "$INTERFACES" ] && ! grep -q "<name>CCU-Modbus</name>" "$INTERFACES"; th
 fi
 
 touch "$CONFROOT/hm_addons.cfg"
-"$BASE/bin/update_addon" ccu-modbus /addons/ccu-modbus/index.cgi CCU-Modbus "Modbus TCP Interface" "Modbus TCP Interface"
+"$BASE/bin/update_addon" ccu-modbus /addons/ccu-modbus/index.cgi CCU-Modbus "Modbus TCP Interface" "Modbus TCP Interface" || exit 14
+
+# Mark the installed version overview for regeneration. On upgrades we start
+# the check below, on first installs the marker survives the required reboot
+# and the rc.d init action performs the check after the daemon starts.
+touch "$CONF/addon_updates_refresh.pending"
 
 sync
 
@@ -90,5 +95,9 @@ if [ $EXITCODE -eq 0 ] && [ ! -f /etc/init.d/S00InstallAddon ]; then
   cd /
   "$RCD/$ADDON" start
 fi
+
+# Asynchronous: do not block OpenCCU's installer on network update checks.
+# If interrupted, rc.d init will retry after the next reboot.
+"$RCD/$ADDON" refresh-addon-versions
 
 exit $EXITCODE
