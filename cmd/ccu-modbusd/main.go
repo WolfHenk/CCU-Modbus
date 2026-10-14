@@ -74,7 +74,32 @@ func main() {
 	defer eng.Stop()
 
 	mux := http.NewServeMux()
-	virt := ccuvirtual.Attach(ctx, mux, cfg, eng)
+	virt := ccuvirtual.Attach(ctx, mux, cfg, eng, func(address string) error {
+		configFileMu.Lock()
+		defer configFileMu.Unlock()
+		current, err := config.Load(*configPath)
+		if err != nil {
+			return err
+		}
+		remaining := make([]config.Device, 0, len(current.Devices))
+		found := false
+		for _, device := range current.Devices {
+			if device.CCUAddress == address {
+				found = true
+				continue
+			}
+			remaining = append(remaining, device)
+		}
+		if !found {
+			return fmt.Errorf("CCU-Loeschung: Geraet %q nicht in Konfiguration gefunden", address)
+		}
+		current.Devices = remaining
+		if err := config.WriteAtomic(*configPath, current); err != nil {
+			return err
+		}
+		log.Printf("CCU-Loeschung: Geraet und Seriennummer %s dauerhaft entfernt", address)
+		return nil
+	})
 	defer virt.Close()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		jsonReply(w, http.StatusOK, map[string]any{"ok": true, "version": version})

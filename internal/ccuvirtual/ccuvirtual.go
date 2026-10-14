@@ -47,14 +47,31 @@ type Integration struct {
 	cancel context.CancelFunc
 }
 
-func Attach(parent context.Context, mux *http.ServeMux, cfg *config.Config, eng *engine.Engine) *Integration {
+type persistentDeviceLayer struct {
+	*vdevices.Handler
+	onDelete func(string) error
+}
+
+func (p *persistentDeviceLayer) DeleteDevice(address string, flags int) error {
+	device, channel := itf.SplitAddress(address)
+	if channel != "" {
+		return p.Handler.DeleteDevice(address, flags)
+	}
+	// Persist before notifying OpenCCU of successful deletion.
+	if err := p.onDelete(device); err != nil {
+		return err
+	}
+	return p.Handler.DeleteDevice(address, flags)
+}
+
+func Attach(parent context.Context, mux *http.ServeMux, cfg *config.Config, eng *engine.Engine, onDelete func(string) error) *Integration {
 	ctx, cancel := context.WithCancel(parent)
 	vd := vdevices.NewContainer()
 	h := vdevices.NewHandler("127.0.0.1", false, vd, func(string) {})
 	vd.Synchronizer = h
 
 	dispatcher := itf.NewDispatcher()
-	dispatcher.AddDeviceLayer(h)
+	dispatcher.AddDeviceLayer(&persistentDeviceLayer{Handler: h, onDelete: onDelete})
 	registerCCUCompatibilityMethods(dispatcher)
 	mux.Handle(RPCPath, &xmlrpc.Handler{Dispatcher: dispatcher})
 

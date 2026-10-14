@@ -4,6 +4,10 @@ CCU-Modbus ist eine Zusatzsoftware für CCU/OpenCCU, mit der Modbus-TCP-Geräte 
 
 Die Konfiguration erfolgt vollständig über die WebUI der CCU. Es ist keine Cloud, keine externe Datenbank und kein zusätzlicher Server erforderlich.
 
+## Geraete loeschen
+
+Ab Version **0.1.28** entfernt das Loeschen eines kompletten Modbus-Geraets in der OpenCCU-Geraeteverwaltung auch den zugehoerigen Geraeteeintrag einschliesslich seiner gespeicherten CCU-Seriennummer aus der persistenten Add-on-Konfiguration. Das Loeschen eines einzelnen Kanals entfernt das Geraet nicht. Bei einem Fehler beim Speichern wird die Loeschung abgelehnt.
+
 ## Installation
 
 1. Das aktuelle Installationspaket über den folgenden Direktlink herunterladen: [ccu-modbus-latest.tar.gz](https://raw.githubusercontent.com/WolfHenk/CCU-Modbus/08c1fc7064c25b07a0cda0e449d833d541f29cf9/releases/ccu-modbus-latest.tar.gz). Im Repository wird nur das jeweils aktuelle Installationspaket vorgehalten.
