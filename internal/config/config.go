@@ -44,6 +44,7 @@ type Register struct {
 	PollSeconds   int     `json:"poll_seconds"`
 	Unit          string  `json:"unit"`
 	TrueMeansOpen bool    `json:"true_means_open,omitempty"`
+	InvertInput   bool    `json:"invert_input,omitempty"`
 	RoomID        int     `json:"room_id,omitempty"`
 	FunctionID    int     `json:"function_id,omitempty"`
 }

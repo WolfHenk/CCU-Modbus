@@ -130,3 +130,11 @@ func TestDeviceAddressUsesPersistedAddress(t *testing.T) {
 		t.Fatalf("deviceAddress = %q, want persisted %q", got, d.CCUAddress)
 	}
 }
+
+func TestDisplayedInputState(t *testing.T) {
+	for _, c := range []struct{ raw, invert, want bool }{{false, false, false}, {true, false, true}, {false, true, true}, {true, true, false}} {
+		if got := displayedInputState(c.raw, c.invert); got != c.want {
+			t.Errorf("raw=%t invert=%t got=%t want=%t", c.raw, c.invert, got, c.want)
+		}
+	}
+}

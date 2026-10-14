@@ -40,6 +40,7 @@ type Integration struct {
 	mu          sync.RWMutex
 	switches    map[switchKey]*vdevices.DigitalChannel
 	inputs      map[switchKey]*vdevices.DigitalChannel
+	inputInvert map[switchKey]bool
 	stateSynced map[switchKey]bool
 	regaReady   bool
 	current     *config.Config
@@ -80,6 +81,7 @@ func Attach(parent context.Context, mux *http.ServeMux, cfg *config.Config, eng 
 		devices:     vd,
 		switches:    make(map[switchKey]*vdevices.DigitalChannel),
 		inputs:      make(map[switchKey]*vdevices.DigitalChannel),
+		inputInvert: make(map[switchKey]bool),
 		stateSynced: make(map[switchKey]bool),
 		regaReady:   false,
 		current:     cfg,
@@ -288,6 +290,7 @@ func (i *Integration) RemoveAll() {
 	i.handler.Synchronize()
 	i.switches = make(map[switchKey]*vdevices.DigitalChannel)
 	i.inputs = make(map[switchKey]*vdevices.DigitalChannel)
+	i.inputInvert = make(map[switchKey]bool)
 	i.stateSynced = make(map[switchKey]bool)
 	time.Sleep(800 * time.Millisecond)
 }
@@ -321,6 +324,7 @@ func (i *Integration) addDevice(d config.Device, addr string, eng *engine.Engine
 				p.Description().Operations = itf.ParameterOperationRead | itf.ParameterOperationEvent
 			}
 			i.inputs[key] = ch
+			i.inputInvert[key] = reg.InvertInput
 		}
 	}
 
@@ -367,6 +371,7 @@ func (i *Integration) syncStates(states []model.DeviceState) {
 				continue
 			}
 			if ch := i.inputs[key]; ch != nil {
+				v = displayedInputState(v, i.inputInvert[key])
 				if !i.stateSynced[key] || ch.State() != v {
 					ch.SetState(v)
 					i.stateSynced[key] = true
@@ -668,3 +673,6 @@ func cleanToken(s string) string {
 	}
 	return b.String()
 }
+
+// displayedInputState changes the CCU representation, never the Modbus raw value.
+func displayedInputState(raw, invert bool) bool { return raw != invert }

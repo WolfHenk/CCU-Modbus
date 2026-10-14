@@ -4,6 +4,10 @@ CCU-Modbus ist eine Zusatzsoftware für CCU/OpenCCU, mit der Modbus-TCP-Geräte 
 
 Die Konfiguration erfolgt vollständig über die WebUI der CCU. Es ist keine Cloud, keine externe Datenbank und kein zusätzlicher Server erforderlich.
 
+## Eingangszustand umkehren
+
+Ab Version **0.1.29** gibt es bei **Discrete Input** im Registerdialog die Option **Eingangszustand in der CCU umkehren (1 ↔ 0)**. Der gelesene Modbus-Rohwert bleibt unveraendert. Nur die boolesche Darstellung in der CCU und in der Werteansicht wird invertiert; Ausgaenge bleiben unberuehrt. Standardmaessig ist die Option ausgeschaltet, vorhandene Register bleiben dadurch unveraendert.
+
 ## Geraete loeschen
 
 Ab Version **0.1.28** entfernt das Loeschen eines kompletten Modbus-Geraets in der OpenCCU-Geraeteverwaltung auch den zugehoerigen Geraeteeintrag einschliesslich seiner gespeicherten CCU-Seriennummer aus der persistenten Add-on-Konfiguration. Das Loeschen eines einzelnen Kanals entfernt das Geraet nicht. Bei einem Fehler beim Speichern wird die Loeschung abgelehnt.
