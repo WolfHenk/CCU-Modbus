@@ -44,7 +44,6 @@ func TestSetReadyConfigCompatibilityRPC(t *testing.T) {
 	}
 }
 
-
 func TestDeviceAddressKeepsLegacyAddressWhenUnique(t *testing.T) {
 	d := config.Device{ID: "plant-247", Host: "192.168.3.207", Port: 502, UnitID: 247}
 	cfg := &config.Config{Devices: []config.Device{d}}
@@ -58,10 +57,10 @@ func TestDeviceAddressSeparatesUnitsOnSameEndpoint(t *testing.T) {
 	d247 := config.Device{ID: "plant-247", Host: "192.168.3.207", Port: 502, UnitID: 247}
 	cfg := &config.Config{Devices: []config.Device{d1, d247}}
 
-	if got, want := deviceAddress(cfg, d1), "Mod68003207P502U1"; got != want {
+	if got, want := deviceAddress(cfg, d1), "MB003207502001"; got != want {
 		t.Fatalf("Unit 1 address = %q, want %q", got, want)
 	}
-	if got, want := deviceAddress(cfg, d247), "Mod68003207P502U247"; got != want {
+	if got, want := deviceAddress(cfg, d247), "MB003207502247"; got != want {
 		t.Fatalf("Unit 247 address = %q, want %q", got, want)
 	}
 	if deviceAddress(cfg, d1) == deviceAddress(cfg, d247) {
@@ -74,11 +73,15 @@ func TestDeviceAddressSeparatesPortsOnSameIP(t *testing.T) {
 	d1502 := config.Device{ID: "port-1502", Host: "192.168.3.207", Port: 1502, UnitID: 1}
 	cfg := &config.Config{Devices: []config.Device{d502, d1502}}
 
-	if got, want := deviceAddress(cfg, d502), "Mod68003207P502U1"; got != want {
+	if got, want := deviceAddress(cfg, d502), "MB003207502001"; got != want {
 		t.Fatalf("port 502 address = %q, want %q", got, want)
 	}
-	if got, want := deviceAddress(cfg, d1502), "Mod68003207P1502U1"; got != want {
-		t.Fatalf("port 1502 address = %q, want %q", got, want)
+	got := deviceAddress(cfg, d1502)
+	if len(got) != 14 || got[:2] != "MB" {
+		t.Fatalf("port 1502 fallback address = %q, want 14-character MB serial", got)
+	}
+	if got == deviceAddress(cfg, d502) {
+		t.Fatalf("different ports collide: %q", got)
 	}
 }
 
@@ -92,7 +95,30 @@ func TestDeviceAddressSeparatesDuplicateLogicalDevices(t *testing.T) {
 	if a == b {
 		t.Fatalf("duplicate logical devices collide: %q", a)
 	}
-	if a != "Mod68003207P502U1IDEV-A" || b != "Mod68003207P502U1IDEV-B" {
-		t.Fatalf("unexpected duplicate addresses: %q / %q", a, b)
+	if len(a) != 14 || len(b) != 14 || a[:2] != "MB" || b[:2] != "MB" {
+		t.Fatalf("duplicate fallback addresses must be 14-character MB serials: %q / %q", a, b)
+	}
+}
+
+func TestDeviceAddressCompactFormatExample(t *testing.T) {
+	d1 := config.Device{ID: "unit-1", Host: "192.168.3.203", Port: 504, UnitID: 1}
+	d2 := config.Device{ID: "unit-247", Host: "192.168.3.203", Port: 504, UnitID: 247}
+	cfg := &config.Config{Devices: []config.Device{d1, d2}}
+	if got, want := deviceAddress(cfg, d1), "MB003203504001"; got != want {
+		t.Fatalf("compact address = %q, want %q", got, want)
+	}
+}
+
+func TestDeviceAddressNeverExceeds14Characters(t *testing.T) {
+	devices := []config.Device{
+		{ID: "a", Host: "192.168.3.203", Port: 502, UnitID: 1},
+		{ID: "b", Host: "192.168.3.203", Port: 502, UnitID: 247},
+		{ID: "c", Host: "192.168.3.203", Port: 1502, UnitID: 1},
+	}
+	cfg := &config.Config{Devices: devices}
+	for _, d := range devices {
+		if got := deviceAddress(cfg, d); len(got) > 14 {
+			t.Fatalf("address too long: %q (%d)", got, len(got))
+		}
 	}
 }
