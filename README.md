@@ -18,7 +18,7 @@ Ab Version **0.1.28** entfernt das Loeschen eines kompletten Modbus-Geraets in d
 
 ## Installation
 
-1. Das aktuelle Installationspaket über den folgenden Direktlink herunterladen: [ccu-modbus-latest.tar.gz](https://raw.githubusercontent.com/WolfHenk/CCU-Modbus/02a6b5f8614b30fd3881b2efd4c0888ff8dd3996/releases/ccu-modbus-latest.tar.gz). Im Repository wird nur das jeweils aktuelle Installationspaket vorgehalten.
+1. Das aktuelle Installationspaket über den folgenden Direktlink herunterladen: [ccu-modbus-latest.tar.gz](https://raw.githubusercontent.com/WolfHenk/CCU-Modbus/5d83f74dcfc7ef02a68a15ec269cf007bc5dae86/releases/ccu-modbus-latest.tar.gz). Im Repository wird nur das jeweils aktuelle Installationspaket vorgehalten.
 2. In der CCU unter **Einstellungen → Systemsteuerung → Zusatzsoftware** die TAR.GZ-Datei auswählen und installieren.
 3. Bei der ersten Installation ist ein Neustart der CCU erforderlich, damit die XML-RPC-Schnittstelle von ReGaHss übernommen wird.
 4. Anschließend unter **Einstellungen → Systemsteuerung → Zusatzsoftware → CCU-Modbus → Einstellen** die Konfiguration öffnen.
