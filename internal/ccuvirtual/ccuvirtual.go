@@ -544,29 +544,62 @@ func deviceAddress(cfg *config.Config, d config.Device) string {
 	if port == 0 {
 		port = 502
 	}
-	addr := fmt.Sprintf("%sP%dU%d", base, port, d.UnitID)
 
-	// Same IP/legacy base, port and Unit-ID can still occur when a user splits
-	// one endpoint across multiple logical devices. In that case the persistent
-	// config ID provides the final discriminator.
-	sameEndpoint := 0
+	// ReGa/Homematic device addresses are normally at most 14 characters.
+	// For colliding IPv4 devices use a compact, readable 14-character serial:
+	// MB + third octet + fourth octet + port + Unit-ID, each zero-padded to
+	// three decimal digits. Example 192.168.3.203:504 Unit 1 ->
+	// MB003203504001.
+	if ip := net.ParseIP(strings.TrimSpace(d.Host)); ip != nil && port <= 999 {
+		if v4 := ip.To4(); v4 != nil {
+			addr := fmt.Sprintf("MB%03d%03d%03d%03d", v4[2], v4[3], port, d.UnitID)
+			if shortAddressUnique(cfg, d, addr) {
+				return addr
+			}
+		}
+	}
+
+	// Unusual ports above 999, host names, or a collision of the compact
+	// readable form use a deterministic 14-character fallback derived from the
+	// complete endpoint plus persistent config ID.
+	return shortHashedAddress(d, port)
+}
+
+func shortAddressUnique(cfg *config.Config, d config.Device, candidate string) bool {
 	for _, other := range cfg.Devices {
+		if other.ID == d.ID {
+			continue
+		}
 		op := other.Port
 		if op == 0 {
 			op = 502
 		}
-		if legacyDeviceAddress(other) == base && op == port && other.UnitID == d.UnitID {
-			sameEndpoint++
+		ip := net.ParseIP(strings.TrimSpace(other.Host))
+		if ip == nil || op > 999 {
+			continue
+		}
+		v4 := ip.To4()
+		if v4 == nil {
+			continue
+		}
+		otherCandidate := fmt.Sprintf("MB%03d%03d%03d%03d", v4[2], v4[3], op, other.UnitID)
+		if otherCandidate == candidate {
+			return false
 		}
 	}
-	if sameEndpoint > 1 {
-		id := cleanToken(d.ID)
-		if id == "" {
-			id = "DEVICE"
-		}
-		addr += "I" + id
+	return true
+}
+
+func shortHashedAddress(d config.Device, port int) string {
+	// FNV-1a 64-bit is used only as a compact identity encoding, not for
+	// cryptographic purposes. Twelve hex digits plus the MB prefix fit exactly
+	// into the 14-character CCU address limit.
+	h := uint64(14695981039346656037)
+	for _, b := range []byte(fmt.Sprintf("%s|%d|%d|%s", strings.TrimSpace(d.Host), port, d.UnitID, d.ID)) {
+		h ^= uint64(b)
+		h *= 1099511628211
 	}
-	return addr
+	return fmt.Sprintf("MB%012X", h&0xFFFFFFFFFFFF)
 }
 
 func legacyDeviceAddress(d config.Device) string {
