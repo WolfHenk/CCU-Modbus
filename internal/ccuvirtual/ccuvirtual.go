@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"strconv"
@@ -37,13 +38,16 @@ type Integration struct {
 	handler *vdevices.Handler
 	devices *vdevices.Container
 
-	mu          sync.RWMutex
-	switches    map[switchKey]*vdevices.DigitalChannel
-	inputs      map[switchKey]*vdevices.DigitalChannel
-	inputInvert map[switchKey]bool
-	stateSynced map[switchKey]bool
-	regaReady   bool
-	current     *config.Config
+	mu            sync.RWMutex
+	switches      map[switchKey]*vdevices.DigitalChannel
+	inputs        map[switchKey]*vdevices.DigitalChannel
+	inputInvert   map[switchKey]bool
+	stateSynced   map[switchKey]bool
+	numeric       map[switchKey]*vdevices.FloatParameter
+	exact64       map[switchKey]*vdevices.StringParameter
+	numericSynced map[switchKey]string
+	regaReady     bool
+	current       *config.Config
 
 	cancel context.CancelFunc
 }
@@ -77,15 +81,18 @@ func Attach(parent context.Context, mux *http.ServeMux, cfg *config.Config, eng 
 	mux.Handle(RPCPath, &xmlrpc.Handler{Dispatcher: dispatcher})
 
 	in := &Integration{
-		handler:     h,
-		devices:     vd,
-		switches:    make(map[switchKey]*vdevices.DigitalChannel),
-		inputs:      make(map[switchKey]*vdevices.DigitalChannel),
-		inputInvert: make(map[switchKey]bool),
-		stateSynced: make(map[switchKey]bool),
-		regaReady:   false,
-		current:     cfg,
-		cancel:      cancel,
+		handler:       h,
+		devices:       vd,
+		switches:      make(map[switchKey]*vdevices.DigitalChannel),
+		inputs:        make(map[switchKey]*vdevices.DigitalChannel),
+		inputInvert:   make(map[switchKey]bool),
+		stateSynced:   make(map[switchKey]bool),
+		numeric:       make(map[switchKey]*vdevices.FloatParameter),
+		exact64:       make(map[switchKey]*vdevices.StringParameter),
+		numericSynced: make(map[switchKey]string),
+		regaReady:     false,
+		current:       cfg,
+		cancel:        cancel,
 	}
 
 	for _, d := range cfg.Devices {
@@ -272,6 +279,16 @@ func virtualChannelSignature(d config.Device) []string {
 		}
 		out = append(out, r.Type+"|"+r.ID)
 	}
+	// Numeric channels come after binary channels in both registration and metadata.
+	for _, r := range d.Registers {
+		if !r.Enabled || (r.Type != "holding" && r.Type != "input") {
+			continue
+		}
+		switch strings.ToLower(r.DataType) {
+		case "uint16", "int16", "uint32", "int32", "float32", "uint64", "int64":
+			out = append(out, r.Type+"|"+r.ID+"|"+strings.ToLower(r.DataType))
+		}
+	}
 	return out
 }
 
@@ -292,6 +309,9 @@ func (i *Integration) RemoveAll() {
 	i.inputs = make(map[switchKey]*vdevices.DigitalChannel)
 	i.inputInvert = make(map[switchKey]bool)
 	i.stateSynced = make(map[switchKey]bool)
+	i.numeric = make(map[switchKey]*vdevices.FloatParameter)
+	i.exact64 = make(map[switchKey]*vdevices.StringParameter)
+	i.numericSynced = make(map[switchKey]string)
 	time.Sleep(800 * time.Millisecond)
 }
 
@@ -328,6 +348,33 @@ func (i *Integration) addDevice(d config.Device, addr string, eng *engine.Engine
 		}
 	}
 
+	// Append numeric channels after binary channels to preserve their existing addresses.
+	for _, r := range d.Registers {
+		if !r.Enabled || (r.Type != "holding" && r.Type != "input") {
+			continue
+		}
+		typ := strings.ToLower(r.DataType)
+		key := switchKey{deviceID: d.ID, registerID: r.ID}
+		switch typ {
+		case "uint16", "int16", "uint32", "int32", "float32":
+			ch := &vdevices.Channel{}
+			ch.Init("ANALOG_INPUT_TRANSMITTER")
+			dev.AddChannel(ch)
+			p := vdevices.NewFloatParameter("VOLTAGE")
+			p.Description().Control = "ANALOG_INPUT.VOLTAGE"
+			p.Description().Operations = itf.ParameterOperationRead | itf.ParameterOperationEvent
+			ch.AddValueParam(p)
+			i.numeric[key] = p
+		case "uint64", "int64":
+			ch := &vdevices.Channel{}
+			ch.Init("ANALOG_INPUT_TRANSMITTER")
+			dev.AddChannel(ch)
+			p := vdevices.NewStringParameter("VALUE")
+			p.Description().Operations = itf.ParameterOperationRead | itf.ParameterOperationEvent
+			ch.AddValueParam(p)
+			i.exact64[key] = p
+		}
+	}
 	_ = i.devices.AddDevice(dev)
 }
 
@@ -357,12 +404,42 @@ func (i *Integration) syncStates(states []model.DeviceState) {
 			if rs.Value.Quality != model.QualityGood {
 				continue
 			}
+			key := switchKey{deviceID: ds.ID, registerID: rs.ID}
+			if p := i.numeric[key]; p != nil {
+				v, ok := rs.Value.Value.(float64)
+				if !ok || math.IsNaN(v) || math.IsInf(v, 0) {
+					continue
+				}
+				if repr := strconv.FormatFloat(v, 'g', -1, 64); i.numericSynced[key] != repr {
+					_ = p.InternalSetValue(v)
+					i.numericSynced[key] = repr
+				}
+				continue
+			}
+			if p := i.exact64[key]; p != nil {
+				v := ""
+				switch n := rs.Value.Value.(type) {
+				case string:
+					v = n
+				case float64:
+					if math.IsNaN(n) || math.IsInf(n, 0) {
+						continue
+					}
+					v = strconv.FormatFloat(n, 'g', -1, 64)
+				default:
+					continue
+				}
+				if i.numericSynced[key] != v {
+					_ = p.InternalSetValue(v)
+					i.numericSynced[key] = v
+				}
+				continue
+			}
 			v, ok := rs.Value.Value.(bool)
 			if !ok {
 				continue
 			}
 
-			key := switchKey{deviceID: ds.ID, registerID: rs.ID}
 			if ch := i.switches[key]; ch != nil {
 				if !i.stateSynced[key] || ch.State() != v {
 					ch.SetState(v)
@@ -483,6 +560,17 @@ func ApplyMetadata(cfg *config.Config) error {
 			chAddr := fmt.Sprintf("%s:%d", addr, channel)
 			fmt.Fprintf(&b, `string cid; foreach(cid,dom.GetObject(ID_CHANNELS).EnumIDs()){object ch=dom.GetObject(cid); if(ch && ch.Address()==%s){ch.Name(%s);}}`, regaQuote(chAddr), regaQuote(r.Name))
 			channel++
+		}
+		for _, r := range d.Registers {
+			if !r.Enabled || (r.Type != "holding" && r.Type != "input") {
+				continue
+			}
+			switch strings.ToLower(r.DataType) {
+			case "uint16", "int16", "uint32", "int32", "float32", "uint64", "int64":
+				chAddr := fmt.Sprintf("%s:%d", addr, channel)
+				fmt.Fprintf(&b, `string cid; foreach(cid,dom.GetObject(ID_CHANNELS).EnumIDs()){object ch=dom.GetObject(cid); if(ch && ch.Address()==%s){ch.Name(%s);}}`, regaQuote(chAddr), regaQuote(r.Name))
+				channel++
+			}
 		}
 	}
 	_, err := runReGa(b.String())
