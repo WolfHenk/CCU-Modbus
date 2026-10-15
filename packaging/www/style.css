@@ -4,3 +4,5 @@
 .regIcon{width:28px;height:28px;object-fit:contain;vertical-align:middle;flex:0 0 28px}
 
 .register-nav{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}.register-nav button{font-size:12px;padding:5px 10px}
+
+.updatebar{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-top:18px}.updatebar h2{margin:0 0 7px}.updatebuttons{display:flex;gap:8px;flex-wrap:wrap}.updatebuttons button:disabled{opacity:.5;cursor:default}@media(max-width:700px){.updatebar{display:block}.updatebuttons{margin-top:10px}}

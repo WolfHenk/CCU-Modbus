@@ -149,6 +149,46 @@ $('testConnection').onclick=function(){var out=$('connectionResult'),d=workingDe
 $('testRegister').onclick=function(){var out=$('registerResult'),d=workingDevice(),r=workingRegister();out.className='';out.textContent='Lese…';api('test_register','POST',{device:d,register:r}).then(function(x){out.className='ok';out.textContent='✓ Rohwert: '+x.raw+' · Wert: '+x.value+(x.unit?' '+x.unit:'');}).catch(function(e){out.className='bad';out.textContent='✗ '+e.message;});};
 $('saveAll').onclick=function(){if(!dirty)return;this.disabled=true;var btn=this;api('save','POST',cfg).then(function(){setDirty(false);notice('Konfiguration gespeichert. Modbus-Dienst wird neu gestartet.');setTimeout(loadStatus,1800);}).catch(function(e){notice('Speichern fehlgeschlagen: '+e.message,true);}).finally(function(){btn.disabled=false;});};
 
+var updateAvailable=false, updateBusy=false;
+function updateMessage(t){$('updateMessage').textContent=t;}
+$('checkUpdate').onclick=function(){
+  var btn=this;btn.disabled=true;updateMessage('Prüfe GitHub-Releases…');
+  api('update_check').then(function(x){
+    updateAvailable=!!x.available;
+    $('installUpdate').disabled=!updateAvailable;
+    updateMessage(updateAvailable?'Neue Version '+x.latest+' verfügbar (installiert: '+x.installed+').':'Version '+x.installed+' ist aktuell.');
+  }).catch(function(e){updateAvailable=false;$('installUpdate').disabled=true;updateMessage('Prüfung fehlgeschlagen: '+e.message);})
+    .finally(function(){btn.disabled=false;});
+};
+$('installUpdate').onclick=function(){
+  if(!updateAvailable||updateBusy)return;
+  if(dirty){notice('Bitte zuerst ungespeicherte Geräteänderungen speichern.',true);return;}
+  if(!confirm('Veröffentlichte Version installieren? Der Modbus-Dienst wird dabei kurz unterbrochen.'))return;
+  updateBusy=true;this.disabled=true;$('checkUpdate').disabled=true;
+  updateMessage('Update wird vorbereitet…');
+  api('update_start','POST').then(function(){pollUpdate();}).catch(function(e){
+    updateBusy=false;$('checkUpdate').disabled=false;updateMessage('Update konnte nicht gestartet werden: '+e.message);
+  });
+};
+function pollUpdate(){
+  api('update_status').then(function(x){
+    updateMessage(x.message||x.state);
+    if(x.state==='done'){
+      updateBusy=false;
+      $('checkUpdate').disabled=false;
+      updateAvailable=false;
+      $('installUpdate').disabled=true;
+      updateMessage((x.message||'Installation beendet')+(x.restart_required?' · Zentrale bitte neu starten.':' · Seite neu laden.'));
+    }else if(x.state==='error'||x.state==='idle'){
+      updateBusy=false;$('checkUpdate').disabled=false;updateAvailable=false;
+      $('installUpdate').disabled=true;
+    }else{setTimeout(pollUpdate,2000);}
+  }).catch(function(e){
+    if(updateBusy)setTimeout(pollUpdate,3000);
+    else updateMessage('Update-Status nicht erreichbar: '+e.message);
+  });
+}
+
 function loadStatus(){api('status').then(function(x){states=Array.isArray(x)?x:[];render();}).catch(function(){states=[];render();});}
 function init(){Promise.all([api('config'),api('status').catch(function(){return [];})]).then(function(x){cfg=x[0];states=Array.isArray(x[1])?x[1]:[];setDirty(false);render();setInterval(loadStatus,5000);}).catch(function(e){notice('CCU-Modbus konnte nicht geladen werden: '+e.message,true);});}
 init();

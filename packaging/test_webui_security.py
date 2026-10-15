@@ -18,3 +18,7 @@ assert '-w "\\n%{http_code}"' in api, 'CGI must retain backend HTTP status'
 assert 'set httpStatus [expr {$statusCode + 0}]' in api
 assert 'puts "Status: $httpStatus\\r"' in api
 print('PASS: exact session format, protected pages, POST-only mutations, backend error status forwarding')
+
+assert "update_start" in api and "check_session $sid" in api
+assert "update_start" in api and "$method != \"POST\"" in api
+assert "Auf Update prüfen" in index and "Update installieren" in index

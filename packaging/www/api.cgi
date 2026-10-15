@@ -17,6 +17,34 @@ if {![check_session $sid]} {
 set method "GET"
 if {[info exists ::env(REQUEST_METHOD)]} { set method $::env(REQUEST_METHOD) }
 
+# Update operations are authenticated separately and never accept arbitrary URLs.
+if {$action == "update_status" || $action == "update_check" || $action == "update_start"} {
+    if {$action == "update_start" && $method != "POST"} {
+        puts "Status: 405 Method Not Allowed\r"
+        puts "\r"
+        puts {{"ok":false,"error":"POST erforderlich"}}
+        exit 0
+    }
+    if {$action != "update_start" && $method != "GET"} {
+        puts "Status: 405 Method Not Allowed\r"
+        puts "\r"
+        puts {{"ok":false,"error":"GET erforderlich"}}
+        exit 0
+    }
+    set cmd "status"
+    if {$action == "update_check"} {set cmd "check"}
+    if {$action == "update_start"} {set cmd "start"}
+    if {[catch {set result [exec /usr/local/addons/ccu-modbus/bin/ccu-modbus-update $cmd]} err]} {
+        puts "Status: 503 Service Unavailable\r"
+        puts "\r"
+        puts {{"ok":false,"error":"Update-Dienst nicht erreichbar"}}
+    } else {
+        puts "\r"
+        puts $result
+    }
+    exit 0
+}
+
 set base "http://127.0.0.1:18701"
 set endpoint ""
 set needPost 0

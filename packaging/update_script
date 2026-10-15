@@ -29,7 +29,7 @@ case "$ARCH" in
   armv7l|armv6l|arm) SRC=bin/linux-arm/ccu-modbusd ;;
   *) echo "Unsupported architecture: $ARCH"; exit 13 ;;
 esac
-[ -f "$SRC" ] || { echo "Missing binary: $SRC" >&2; exit 13; }
+[ -f "$SRC" ] && [ -f "$(dirname "$SRC")/ccu-modbus-update" ] || { echo "Missing binary: $SRC" >&2; exit 13; }
 # Validate everything needed before stopping the running addon.
 for f in bin/update_addon bin/register_devtype VERSION rc.d/ccu-modbus examples/config.json; do
   [ -f "$f" ] || { echo "Missing package file: $f" >&2; exit 13; }
@@ -43,6 +43,8 @@ mkdir -p "$BASE/bin" "$BASE/www" "$BASE/lib"
 rm -rf "$BASE/bin"/* "$BASE/www"/* "$BASE/lib"/*
 
 cp -f "$SRC" "$BASE/bin/ccu-modbusd"
+cp -f "$(dirname "$SRC")/ccu-modbus-update" "$BASE/bin/ccu-modbus-update"
+chmod 755 "$BASE/bin/ccu-modbus-update"
 chmod 755 "$BASE/bin/ccu-modbusd"
 cp -f bin/update_addon "$BASE/bin/update_addon"
 chmod 755 "$BASE/bin/update_addon"
