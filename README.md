@@ -4,6 +4,14 @@ CCU-Modbus ist eine Zusatzsoftware für CCU/OpenCCU, mit der Modbus-TCP-Geräte 
 
 Die Konfiguration erfolgt vollständig über die WebUI der CCU. Es ist keine Cloud, keine externe Datenbank und kein zusätzlicher Server erforderlich.
 
+## Aktuelle Version: 0.2.1
+
+[**Release 0.2.1 herunterladen**](https://github.com/WolfHenk/CCU-Modbus/releases/tag/v0.2.1) · [**Installationspaket 0.2.1 (TAR.GZ)**](https://github.com/WolfHenk/CCU-Modbus/releases/download/v0.2.1/ccu-modbus-0.2.1.tar.gz) · [**SHA-256-Prüfsumme**](https://github.com/WolfHenk/CCU-Modbus/releases/download/v0.2.1/ccu-modbus-0.2.1.tar.gz.sha256)
+
+**Neu in 0.2.1:** Ein-Klick-Selbstupdate in der CCU-Modbus-WebUI. Die Funktion fragt veröffentlichte GitHub-Releases ab, vergleicht die Version, lädt nach Bestätigung das Paket herunter, prüft die SHA-256-Summe und übergibt es an den OpenCCU-Installer. Ein eigenständiges Go-Programm übernimmt die Aktualisierung; Python wird auf der CCU nicht benötigt. Der Modbus-Betrieb bleibt ohne Internetverbindung nutzbar.
+
+**Teststand:** Installation des 0.2.1-Entwicklungsstands auf einer separaten ARM64-OpenCCU, Daemon-Betrieb und Release-Abfrage sind bestanden. Der vollständige Ein-Klick-Updatevorgang inklusive Installationsabschluss und Rückfallverhalten ist noch **nicht abschließend geprüft**. Die reguläre CCU-Zusatzsoftwareverwaltung erkennt das veröffentlichte 0.2.1 als neue Version gegenüber einer absichtlich als 0.1.1 bezeichneten Testinstallation.
+
 ## 8-Bit-Register (ab 0.1.31)
 
 Fuer UINT8/INT8 liest das Add-on genau ein Modbus-16-Bit-Register. Standardmaessig wird dessen niederwertiges Byte verwendet; mit der bestehenden Option **Byte-Swap** das hoeherwertige Byte. INT8 wird als vorzeichenbehaftete Zweierkomplementzahl interpretiert. Beide Datentypen erscheinen wie 16- und 32-Bit-Werte numerisch in der CCU. Die Modbus-Adressierung bleibt wortbasiert.
@@ -22,12 +30,23 @@ Ab Version **0.1.28** entfernt das Loeschen eines kompletten Modbus-Geraets in d
 
 ## Installation
 
-1. Das aktuelle Installationspaket über den folgenden Direktlink herunterladen: [ccu-modbus-latest.tar.gz](https://raw.githubusercontent.com/WolfHenk/CCU-Modbus/3b9492234576d0d095504920d18e85a4787a7993/releases/ccu-modbus-latest.tar.gz). Im Repository wird nur das jeweils aktuelle Installationspaket vorgehalten.
+1. Das [veröffentlichte Installationspaket 0.2.1](https://github.com/WolfHenk/CCU-Modbus/releases/download/v0.2.1/ccu-modbus-0.2.1.tar.gz) herunterladen. Der frühere commit-feste `latest`-Link bleibt über die Versionshistorie nachvollziehbar; für 0.2.1 gilt der veröffentlichte Release als Installationsquelle.
 2. In der CCU unter **Einstellungen → Systemsteuerung → Zusatzsoftware** die TAR.GZ-Datei auswählen und installieren.
 3. Bei der ersten Installation ist ein Neustart der CCU erforderlich, damit die XML-RPC-Schnittstelle von ReGaHss übernommen wird.
 4. Anschließend unter **Einstellungen → Systemsteuerung → Zusatzsoftware → CCU-Modbus → Einstellen** die Konfiguration öffnen.
 
-Updates werden auf dem gleichen Weg über den oben verlinkten, commit-festen Download installiert. Dadurch kann kein zwischengespeichertes älteres `latest`-Paket ausgeliefert werden. Die bestehende Konfiguration bleibt dabei erhalten.
+Bei späteren Updates bleibt die vorhandene Modbus-Konfiguration erhalten. Die CCU-Zusatzsoftwareverwaltung kann veröffentlichte Versionen erkennen und ein Installationspaket zum Herunterladen anbieten.
+
+### Selbstupdate in CCU-Modbus (neu in 0.2.1)
+
+In der CCU-Modbus-WebUI gibt es den Bereich **Software-Update**:
+
+1. **Auf Update prüfen** fragt das neueste veröffentlichte GitHub-Release ab.
+2. Ist eine höhere Version verfügbar, wird **Update installieren** aktiv.
+3. Nach einer ausdrücklichen Bestätigung lädt der Update-Worker Archiv und Prüfsummendatei herunter, prüft sie und startet den OpenCCU-Installer.
+4. Die WebUI zeigt den Update-Status und gegebenenfalls einen erforderlichen Neustart an.
+
+Die Prüfung erfolgt auf Knopfdruck; für die normale Modbus-Kommunikation ist weder GitHub noch eine Cloud erforderlich. **Hinweis:** Der vollständige Updateablauf ist noch in der praktischen End-to-End-Abnahme. Bis dahin bleibt die manuelle Installation über die CCU-Zusatzsoftwareverwaltung der bestätigte Installationsweg.
 
 ## Erstes Modbus-Gerät einrichten
 
@@ -180,13 +199,13 @@ Private, gemeinnützige und sonstige nichtkommerzielle Nutzung ist erlaubt. Komm
 Der Name **Modbus** und das Modbus-Logo sind fremde Marken bzw. Assets und werden durch die CCU-Modbus-Lizenz nicht mitlizenziert. Einzelheiten stehen in `LICENSE` und `THIRD_PARTY_NOTICES`.
 
 Copyright © 2026 Wolfram Henkel
-### Development policy
+### Entwicklung und Releases
 
-Development, tests, packaging, commits, and pushes are performed **locally on `heizungmaster`**, in `/home/wolfram/CCU-Modbus`. GitHub is used solely as the published Git remote; changes must **never be authored or edited directly on GitHub**. See [AGENTS.md](AGENTS.md).
+Entwicklung, Tests und Paketierung erfolgen lokal; GitHub dient als Versionsverwaltung und Veröffentlichungsplattform. Siehe [AGENTS.md](AGENTS.md).
 
-### Releaseverfahren ab 0.1.32
-Die in der CCU angebotenen Updates basieren auf veröffentlichten GitHub-Releases. Releases werden aus Tags vX.Y.Z gebaut. Das rc.d-init registriert die Schnittstelle, der Daemon startet erst in start. Für ReGaHSS bleiben zusätzliche Installationstests auf realer Hardware erforderlich.
+Releases werden über Tags im Format `vX.Y.Z` gebaut und enthalten ein versionsgebundenes Installationsarchiv mit SHA-256-Prüfsumme. Die CCU prüft veröffentlichte Releases, nicht den wechselnden Entwicklungsstand des Branches `main`.
 
-### Testnachweis für 0.2.0
+### Testnachweise
 
-[Ausführliches Testprotokoll vom 15. Oktober 2026](docs/CCU-Modbus_0.2.0_Testprotokoll_2026-10-15.md). Der Bericht unterscheidet bestandene Tests auf OpenCCU ARM64 von nicht geprüften Plattformen (originale CCU3 und x86_64-OpenCCU) und weist ausdrücklich darauf hin, dass die mit 0.2.0 neu bezeichnete Archivdatei vor der Veröffentlichung noch nicht auf der Test-CCU installiert war.
+- [Testprotokoll Version 0.2.0 vom 15. Oktober 2026](docs/CCU-Modbus_0.2.0_Testprotokoll_2026-10-15.md): 63 dokumentierte bestandene Prüfpunkte einschließlich Installation des veröffentlichten 0.2.0-Pakets auf ARM64-OpenCCU. Nicht durchgeführte Plattform- und Zusatzprüfungen sind ausgewiesen.
+- **Version 0.2.1:** Quellcode- und Buildtests sowie ARM64-Testinstallation und Update-Versionsprüfung bestanden. Der vollständige Ein-Klick-Selbstupdate-Test ist noch offen; aus der reinen Anzeige einer neuen Version wird kein bestandener Installationstest abgeleitet.
