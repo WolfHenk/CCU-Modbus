@@ -14,4 +14,7 @@ for action in ('save','test_connection','test_register'):
     assert re.search(r'\$action == "'+action+r'"[\s\S]{0,90}set needPost 1',api), action
 assert 'encodeURIComponent(sid)' in js
 assert 'regexp {^@' in session
-print('PASS: exact session format, protected pages, POST-only mutations')
+assert '-w "\\n%{http_code}"' in api, 'CGI must retain backend HTTP status'
+assert 'set httpStatus [expr {$statusCode + 0}]' in api
+assert 'puts "Status: $httpStatus\\r"' in api
+print('PASS: exact session format, protected pages, POST-only mutations, backend error status forwarding')

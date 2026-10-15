@@ -63,18 +63,28 @@ if {$needPost} {
     set f [open $tmp w]
     puts -nonewline $f $body
     close $f
-    if {[catch {set result [exec /usr/bin/env curl -sS --max-time 35 -H "Content-Type: application/json" -X POST --data-binary @$tmp "$base$endpoint"]} err]} {
+    if {[catch {set result [exec /usr/bin/env curl -sS --max-time 35 -H "Content-Type: application/json" -X POST --data-binary @$tmp -w "\n%{http_code}" "$base$endpoint"]} err]} {
         set result "{\"ok\":false,\"error\":\"Daemon nicht erreichbar\"}"
         set code 1
     }
     file delete -force $tmp
 } else {
-    if {[catch {set result [exec /usr/bin/env curl -sS --max-time 5 "$base$endpoint"]} err]} {
+    if {[catch {set result [exec /usr/bin/env curl -sS --max-time 5 -w "\n%{http_code}" "$base$endpoint"]} err]} {
         set result "{\"ok\":false,\"error\":\"Daemon nicht erreichbar\"}"
         set code 1
     }
 }
 
+# Preserve the daemon's HTTP status. Curl exits successfully on HTTP 4xx,
+# so an error JSON body alone is insufficient for clients and browser tests.
+set httpStatus 502
+if {!$code && [regexp {\n([0-9]{3})$} $result full statusCode]} {
+    set httpStatus [expr {$statusCode + 0}]
+    set result [string range $result 0 [expr {[string length $result] - [string length $full] - 1}]]
+}
+if {$httpStatus != 200} {
+    puts "Status: $httpStatus\r"
+}
 puts "\r"
 puts $result
 

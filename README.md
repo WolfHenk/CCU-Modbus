@@ -186,3 +186,7 @@ Development, tests, packaging, commits, and pushes are performed **locally on `h
 
 ### Releaseverfahren ab 0.1.32
 Die in der CCU angebotenen Updates basieren auf veröffentlichten GitHub-Releases. Releases werden aus Tags vX.Y.Z gebaut. Das rc.d-init registriert die Schnittstelle, der Daemon startet erst in start. Für ReGaHSS bleiben zusätzliche Installationstests auf realer Hardware erforderlich.
+
+### Testnachweis für 0.2.0
+
+[Ausführliches Testprotokoll vom 15. Oktober 2026](docs/CCU-Modbus_0.2.0_Testprotokoll_2026-10-15.md). Der Bericht unterscheidet bestandene Tests auf OpenCCU ARM64 von nicht geprüften Plattformen (originale CCU3 und x86_64-OpenCCU) und weist ausdrücklich darauf hin, dass die mit 0.2.0 neu bezeichnete Archivdatei vor der Veröffentlichung noch nicht auf der Test-CCU installiert war.

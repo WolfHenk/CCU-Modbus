@@ -177,7 +177,10 @@ func main() {
 			jsonReply(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "Ungueltige Geraetedaten"})
 			return
 		}
-		res := engine.TestConnection(d)
+		res, used := eng.TestActive(d, nil)
+		if !used {
+			res = engine.TestConnection(d)
+		}
 		code := http.StatusOK
 		if !res.OK {
 			code = http.StatusBadRequest
@@ -197,7 +200,10 @@ func main() {
 			jsonReply(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "Ungueltige Testdaten"})
 			return
 		}
-		res := engine.TestRegister(req.Device, req.Register)
+		res, used := eng.TestActive(req.Device, &req.Register)
+		if !used {
+			res = engine.TestRegister(req.Device, req.Register)
+		}
 		code := http.StatusOK
 		if !res.OK {
 			code = http.StatusBadRequest

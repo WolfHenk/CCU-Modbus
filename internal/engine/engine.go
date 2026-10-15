@@ -15,6 +15,11 @@ import (
 	"github.com/WolfHenk/ccu-modbus/internal/model"
 )
 
+type testRequest struct {
+	register *config.Register
+	result   chan TestResult
+}
+
 type writeRequest struct {
 	registerID string
 	value      bool
@@ -24,6 +29,8 @@ type Engine struct {
 	mu      sync.RWMutex
 	states  map[string]model.DeviceState
 	writers map[string]chan writeRequest
+	testers map[string]chan testRequest
+	active  map[string]config.Device
 	cancel  context.CancelFunc
 }
 
@@ -31,6 +38,8 @@ func New() *Engine {
 	return &Engine{
 		states:  map[string]model.DeviceState{},
 		writers: map[string]chan writeRequest{},
+		testers: map[string]chan testRequest{},
+		active:  map[string]config.Device{},
 	}
 }
 
@@ -43,10 +52,13 @@ func (e *Engine) Start(parent context.Context, cfg *config.Config) {
 			continue
 		}
 		ch := make(chan writeRequest, 32)
+		tests := make(chan testRequest)
 		e.mu.Lock()
 		e.writers[d.ID] = ch
+		e.testers[d.ID] = tests
+		e.active[d.ID] = d
 		e.mu.Unlock()
-		go e.runDevice(ctx, d, ch)
+		go e.runDevice(ctx, d, ch, tests)
 	}
 }
 
@@ -99,7 +111,7 @@ func registerInterval(r config.Register) time.Duration {
 	return time.Duration(sec) * time.Second
 }
 
-func (e *Engine) runDevice(ctx context.Context, d config.Device, writes <-chan writeRequest) {
+func (e *Engine) runDevice(ctx context.Context, d config.Device, writes <-chan writeRequest, tests <-chan testRequest) {
 	state := model.DeviceState{ID: d.ID, Name: d.Name, Host: d.Host, Port: d.Port, UnitID: uint8(d.UnitID), State: "STARTING"}
 	nextPoll := make([]time.Time, len(d.Registers))
 
@@ -154,6 +166,18 @@ func (e *Engine) runDevice(ctx context.Context, d config.Device, writes <-chan w
 			state.Connected = false
 			e.setState(state)
 			return
+		case t := <-tests:
+			if t.register == nil {
+				// The existing client has been used successfully only if its state is ONLINE.
+				t.result <- TestResult{OK: state.State == "ONLINE", Error: func() string {
+					if state.State != "ONLINE" {
+						return "Geraet nicht online: " + state.State
+					}
+					return ""
+				}()}
+			} else {
+				t.result <- testRegisterWithClient(client, *t.register)
+			}
 		case wr := <-writes:
 			e.writeCoil(client, d, &state, wr)
 			recomputeDeviceState(&state)

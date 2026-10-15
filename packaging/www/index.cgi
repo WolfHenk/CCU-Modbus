@@ -23,7 +23,7 @@ puts "Cache-Control: no-store\r"
 puts "\r"
 puts {<!doctype html>}
 puts {<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">}
-puts [format {<title>CCU-Modbus</title><link rel="stylesheet" href="style.css?v=%s"></head><body>} $addonVersion]
+puts [format {<title>CCU-Modbus</title><link rel="stylesheet" href="style.css?v=%s&layout=5"></head><body>} $addonVersion]
 puts [format {<header class="top"><div><img src="img/modbus-logo.png" class="logo" alt="Modbus"></div><div><h1>CCU-Modbus</h1><div class="sub">Modbus TCP Interface für CCU/OpenCCU</div></div><div class="version">%s</div></header>} $addonVersion]
 puts {<main><div id="notice" class="notice hidden"></div>}
 puts {<section class="toolbar"><div><h2>Modbus-Geräte</h2><div class="hint">Geräte und Werte werden lokal auf der CCU gespeichert.</div></div><button id="addDevice" class="primary">+ Gerät hinzufügen</button></section>}
@@ -36,6 +36,7 @@ puts {<div class="grid"><label>Name<input id="dName" required></label><label>IP-
 puts {<details><summary>Erweitert</summary><div class="grid advanced"><label>Timeout (ms)<input id="dTimeout" type="number" min="100" max="30000" value="1500"></label><label>Retries<input id="dRetries" type="number" min="0" max="2" value="1"></label><label class="check"><input id="dEnabled" type="checkbox" checked> Gerät aktiv</label></div></details>}
 puts {<div class="testline"><button type="button" id="testConnection">Verbindung testen</button><span id="connectionResult"></span></div>}
 puts {<div class="registerHead"><h3>Register</h3><button type="button" id="addRegister">+ Register hinzufügen</button></div>}
+puts {<div class="register-nav"><button type="button" onclick="document.querySelector('#deviceDialog .tablewrap').scrollTop -= 130">&#9650; Vorherige Register</button><button type="button" onclick="document.querySelector('#deviceDialog .tablewrap').scrollTop += 130">&#9660; Weitere Register</button></div>}
 puts {<div class="tablewrap"><table><thead><tr><th>Name</th><th>Typ</th><th>Adresse</th><th>Datentyp</th><th>Intervall</th><th></th></tr></thead><tbody id="registerRows"></tbody></table></div>}
 puts {<div class="dialogactions"><button type="button" id="deleteDevice" class="danger">Gerät löschen</button><span class="spacer"></span><button value="cancel">Abbrechen</button><button type="button" id="applyDevice" class="primary">Übernehmen</button></div></form></dialog>}
 puts {<dialog id="registerDialog"><form method="dialog"><div class="dialoghead"><h2 id="registerTitle">Register</h2><button value="cancel" class="iconbtn">×</button></div>}
