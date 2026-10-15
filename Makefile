@@ -18,6 +18,8 @@ build:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "$(LDFLAGS)" -o build/bin/linux-amd64/ccu-modbusd ./cmd/ccu-modbusd
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags "$(LDFLAGS)" -o build/bin/linux-arm64/ccu-modbusd ./cmd/ccu-modbusd
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -trimpath -ldflags "$(LDFLAGS)" -o build/bin/linux-arm/ccu-modbusd ./cmd/ccu-modbusd
+	@for arch in amd64 arm64; do CGO_ENABLED=0 GOOS=linux GOARCH=$$arch go build -trimpath -o build/bin/linux-$$arch/ccu-modbus-update ./cmd/ccu-modbus-update || exit 1; done
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -trimpath -o build/bin/linux-arm/ccu-modbus-update ./cmd/ccu-modbus-update
 
 package: test build
 	rm -rf build/pkg && mkdir -p build/pkg/bin build/pkg/rc.d build/pkg/www build/pkg/lib build/pkg/examples build/pkg/docs

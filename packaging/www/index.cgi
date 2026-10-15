@@ -29,6 +29,7 @@ puts {<main><div id="notice" class="notice hidden"></div>}
 puts {<section class="toolbar"><div><h2>Modbus-Geräte</h2><div class="hint">Geräte und Werte werden lokal auf der CCU gespeichert.</div></div><button id="addDevice" class="primary">+ Gerät hinzufügen</button></section>}
 puts {<div id="devices" class="devices"><div class="empty">Lade Konfiguration…</div></div>}
 puts {<section class="footerbar"><button id="saveAll" class="primary">Änderungen speichern</button><span id="dirtyText" class="muted">Keine ungespeicherten Änderungen.</span></section>}
+puts {<section class="card updatebar"><div><h2>Software-Update</h2><div class="hint">Prüfung auf neue veröffentlichte GitHub-Versionen nur auf Knopfdruck. Keine Cloud-Verbindung für den Modbus-Betrieb nötig.</div><p id="updateMessage" class="muted">Noch nicht geprüft.</p></div><div class="updatebuttons"><button id="checkUpdate" type="button">Auf Update prüfen</button><button id="installUpdate" type="button" class="primary" disabled>Update installieren</button></div></section>}
 puts {<footer class="copyright">© 2026 Wolfram Henkel · CCU-Modbus Non-Commercial License 1.0</footer>}
 puts {</main>}
 puts {<dialog id="deviceDialog"><form method="dialog" id="deviceForm"><div class="dialoghead"><h2 id="deviceTitle">Gerät</h2><button value="cancel" class="iconbtn">×</button></div>}
