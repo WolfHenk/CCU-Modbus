@@ -34,6 +34,7 @@ type Register struct {
 	Name          string  `json:"name"`
 	Enabled       bool    `json:"enabled"`
 	Type          string  `json:"type"`
+	CoilDirection string  `json:"coil_direction,omitempty"`
 	Address       uint16  `json:"address"`
 	DataType      string  `json:"datatype"`
 	Factor        float64 `json:"factor"`
@@ -189,6 +190,12 @@ func ValidateRegister(r Register) error {
 	}
 	if strings.TrimSpace(r.Name) == "" {
 		return errors.New("register name fehlt")
+	}
+	if r.CoilDirection != "" && r.CoilDirection != "input" && r.CoilDirection != "output" {
+		return fmt.Errorf("unbekannte coil-richtung %q", r.CoilDirection)
+	}
+	if r.Type != "coil" && r.CoilDirection != "" {
+		return errors.New("coil_direction ist nur fuer coils erlaubt")
 	}
 	switch r.Type {
 	case "coil", "discrete", "holding", "input":

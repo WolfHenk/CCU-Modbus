@@ -202,7 +202,7 @@ func (e *Engine) writeCoil(client *mb.Client, d config.Device, state *model.Devi
 		state.ErrorCount++
 		return
 	}
-	if !reg.Enabled || reg.Type != "coil" || reg.DataType != "bool" {
+	if !reg.Enabled || reg.Type != "coil" || reg.DataType != "bool" || reg.CoilDirection == "input" {
 		state.LastError = "Register ist nicht als schaltbarer Coil konfiguriert: " + reg.Name
 		state.ErrorCount++
 		return

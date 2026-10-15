@@ -277,7 +277,16 @@ func virtualChannelSignature(d config.Device) []string {
 		if !r.Enabled || strings.ToLower(r.DataType) != "bool" || (r.Type != "coil" && r.Type != "discrete") {
 			continue
 		}
-		out = append(out, r.Type+"|"+r.ID)
+		// Direction changes alter the Homematic channel type, not its address.
+		direction := r.CoilDirection
+		if direction == "" && r.Type == "coil" {
+			direction = "output"
+		}
+		if r.Type == "coil" {
+			out = append(out, r.Type+"|"+r.ID+"|"+direction)
+		} else {
+			out = append(out, r.Type+"|"+r.ID)
+		}
 	}
 	// Numeric channels come after binary channels in both registration and metadata.
 	for _, r := range d.Registers {
@@ -329,6 +338,15 @@ func (i *Integration) addDevice(d config.Device, addr string, eng *engine.Engine
 
 		switch r.Type {
 		case "coil":
+			if reg.CoilDirection == "input" {
+				ch := vdevices.NewDigitalChannel(dev, "DIGITAL_INPUT", "SWITCH_TRANSMITTER.STATE")
+				if p, err := ch.ValueParamset().Parameter("STATE"); err == nil {
+					p.Description().Operations = itf.ParameterOperationRead | itf.ParameterOperationEvent
+				}
+				i.inputs[key] = ch
+				i.inputInvert[key] = reg.InvertInput
+				break
+			}
 			ch := vdevices.NewSwitchChannel(dev)
 			ch.OnSetState = func(value bool) bool {
 				return eng.EnqueueCoil(d.ID, reg.ID, value)

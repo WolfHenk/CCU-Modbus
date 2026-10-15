@@ -4,13 +4,25 @@ CCU-Modbus ist eine Zusatzsoftware für CCU/OpenCCU, mit der Modbus-TCP-Geräte 
 
 Die Konfiguration erfolgt vollständig über die WebUI der CCU. Es ist keine Cloud, keine externe Datenbank und kein zusätzlicher Server erforderlich.
 
-## Aktuelle Version: 0.2.1
+## Aktuelle Version: 0.2.2
 
-[**Release 0.2.1 herunterladen**](https://github.com/WolfHenk/CCU-Modbus/releases/tag/v0.2.1) · [**Installationspaket 0.2.1 (TAR.GZ)**](https://github.com/WolfHenk/CCU-Modbus/releases/download/v0.2.1/ccu-modbus-0.2.1.tar.gz) · [**SHA-256-Prüfsumme**](https://github.com/WolfHenk/CCU-Modbus/releases/download/v0.2.1/ccu-modbus-0.2.1.tar.gz.sha256)
+[**Release 0.2.2 herunterladen**](https://github.com/WolfHenk/CCU-Modbus/releases/tag/v0.2.2) · [**Installationspaket 0.2.2 (TAR.GZ)**](https://github.com/WolfHenk/CCU-Modbus/releases/download/v0.2.2/ccu-modbus-0.2.2.tar.gz) · [**SHA-256-Prüfsumme**](https://github.com/WolfHenk/CCU-Modbus/releases/download/v0.2.2/ccu-modbus-0.2.2.tar.gz.sha256)
 
 **Neu in 0.2.1:** Ein-Klick-Selbstupdate in der CCU-Modbus-WebUI. Die Funktion fragt veröffentlichte GitHub-Releases ab, vergleicht die Version, lädt nach Bestätigung das Paket herunter, prüft die SHA-256-Summe und übergibt es an den OpenCCU-Installer. Ein eigenständiges Go-Programm übernimmt die Aktualisierung; Python wird auf der CCU nicht benötigt. Der Modbus-Betrieb bleibt ohne Internetverbindung nutzbar.
 
 **Teststand:** Installation des 0.2.1-Entwicklungsstands auf einer separaten ARM64-OpenCCU, Daemon-Betrieb und Release-Abfrage sind bestanden. Der vollständige Ein-Klick-Updatevorgang inklusive Installationsabschluss und Rückfallverhalten ist noch **nicht abschließend geprüft**. Die reguläre CCU-Zusatzsoftwareverwaltung erkennt das veröffentlichte 0.2.1 als neue Version gegenüber einer absichtlich als 0.1.1 bezeichneten Testinstallation.
+
+## Coils als Eingänge oder Ausgänge – Siemens LOGO! (Version 0.2.2)
+
+Die Siemens LOGO! bildet in ihrer Modbus-TCP-Schnittstelle auch den **V-Speicher** als **Coils** ab. Im LOGO!-Programm können **Netzwerkeingänge (NI)** einzelne V-Bits auswerten, während **Netzwerkausgänge (NQ)** Zustände auf andere V-Bits schreiben. Daher werden auch reine Rückmeldungen der LOGO! von der CCU technisch über **FC01 (Read Coils)** gelesen, obwohl es aus Sicht der CCU **Eingangssignale** sind. Der Modbus-Funktionstyp allein legt die Richtung des Homematic-Kanals folglich nicht fest.
+
+Für **jeden Coil einzeln** gibt es deshalb die Einstellung **Coil-Verwendung**:
+
+- **Eingang (nur lesen):** FC01 abfragen; in der CCU als nicht schaltbaren DIGITAL_INPUT anzeigen und Zustandsänderungen als Ereignisse bereitstellen. **Kein FC05-Schreibzugriff.**
+- **Ausgang (schalten und lesen):** FC05 schreiben und mit FC01 den tatsächlich gemeldeten Zustand zurücklesen; in der CCU als schaltbaren Ausgang darstellen.
+
+**Kompatibilität:** Ohne neue Richtungseinstellung bleiben bereits vorhandene Coils Ausgänge. Die LOGO!-Programmierung und die Modbus-V-Bit-Adressen werden durch diese Änderung nicht verändert. Die Unterscheidung beschreibt die **Verwendung aus Sicht der CCU**, nicht die physikalische Richtung eines LOGO!-Anschlusses. Das ist keine pauschale Regel für alle Modbus-Geräte, sondern wird insbesondere für die NI/NQ-Abbildung der LOGO! benötigt.
+
 
 ## 8-Bit-Register (ab 0.1.31)
 
@@ -30,7 +42,7 @@ Ab Version **0.1.28** entfernt das Loeschen eines kompletten Modbus-Geraets in d
 
 ## Installation
 
-1. Das [veröffentlichte Installationspaket 0.2.1](https://github.com/WolfHenk/CCU-Modbus/releases/download/v0.2.1/ccu-modbus-0.2.1.tar.gz) herunterladen. Der frühere commit-feste `latest`-Link bleibt über die Versionshistorie nachvollziehbar; für 0.2.1 gilt der veröffentlichte Release als Installationsquelle.
+1. Das [veröffentlichte Installationspaket 0.2.2](https://github.com/WolfHenk/CCU-Modbus/releases/download/v0.2.2/ccu-modbus-0.2.2.tar.gz) herunterladen.
 2. In der CCU unter **Einstellungen → Systemsteuerung → Zusatzsoftware** die TAR.GZ-Datei auswählen und installieren.
 3. Bei der ersten Installation ist ein Neustart der CCU erforderlich, damit die XML-RPC-Schnittstelle von ReGaHss übernommen wird.
 4. Anschließend unter **Einstellungen → Systemsteuerung → Zusatzsoftware → CCU-Modbus → Einstellen** die Konfiguration öffnen.

@@ -60,7 +60,7 @@ function renderValues(idx, box){
       if(rs.value.value!==undefined){if(r.type==='discrete'&&typeof rs.value.value==='boolean'){v=(rs.value.value!==!!r.invert_input)?'aktiv':'inaktiv';}else{v=rs.value.value+(r.unit?' '+esc(r.unit):'');}}
       if(rs.value.error)q=rs.value.error;
     }
-    html+='<div class="valueRow"><span class="regName"><img class="regIcon" src="'+registerIcon(r.type)+'" alt="">'+esc(r.name)+'</span><strong>'+v+'</strong><span class="quality">'+esc(q)+'</span></div>';
+    html+='<div class="valueRow"><span class="regName"><img class="regIcon" src="'+registerIcon(r.type,r.coil_direction)+'" alt="">'+esc(r.name)+'</span><strong>'+v+'</strong><span class="quality">'+esc(q)+'</span></div>';
   });
   box.innerHTML=html||'<span class="muted">Keine Register vorhanden.</span>';
 }
@@ -84,20 +84,20 @@ function workingDevice(){
 }
 function renderRegisters(){
   var d=$('deviceDialog')._working, tb=$('registerRows');tb.innerHTML='';
-  d.registers.forEach(function(r,i){var tr=document.createElement('tr');tr.innerHTML='<td><span class="regName"><img class="regIcon" src="'+registerIcon(r.type)+'" alt="">'+esc(r.name)+'</span></td><td>'+esc(typeName(r.type))+'</td><td>'+r.address+'</td><td>'+esc(r.datatype)+'</td><td>'+r.poll_seconds+' s</td><td><button type="button" data-r="'+i+'">Bearbeiten</button></td>';tb.appendChild(tr);});
+  d.registers.forEach(function(r,i){var tr=document.createElement('tr');tr.innerHTML='<td><span class="regName"><img class="regIcon" src="'+registerIcon(r.type,r.coil_direction)+'" alt="">'+esc(r.name)+'</span></td><td>'+esc(typeName(r.type)+(r.type==='coil'?' ('+(r.coil_direction==='input'?'Eingang':'Ausgang')+')':''))+'</td><td>'+r.address+'</td><td>'+esc(r.datatype)+'</td><td>'+r.poll_seconds+' s</td><td><button type="button" data-r="'+i+'">Bearbeiten</button></td>';tb.appendChild(tr);});
   tb.querySelectorAll('[data-r]').forEach(function(b){b.onclick=function(){openRegister(Number(this.getAttribute('data-r')));};});
 }
-function registerIcon(t){return {coil:'img/modbus-output.svg',discrete:'img/modbus-input.svg',holding:'img/modbus-register.svg',input:'img/modbus-input-register.svg'}[t]||'img/modbus-register.svg';}
+function registerIcon(t,dir){if(t==='coil'&&dir==='input')return 'img/modbus-input.svg';return {coil:'img/modbus-output.svg',discrete:'img/modbus-input.svg',holding:'img/modbus-register.svg',input:'img/modbus-input-register.svg'}[t]||'img/modbus-register.svg';}
 function typeName(t){return {holding:'Holding',input:'Input',coil:'Coil',discrete:'Discrete'}[t]||t;}
-function blankRegister(){return {id:'reg-'+Date.now(),name:'',enabled:true,type:'holding',address:0,datatype:'INT16',factor:1,offset:0,byte_swap:false,word_swap:false,dword_swap:false,poll_seconds:10,unit:''};}
+function blankRegister(){return {id:'reg-'+Date.now(),name:'',enabled:true,type:'holding',coil_direction:'output',address:0,datatype:'INT16',factor:1,offset:0,byte_swap:false,word_swap:false,dword_swap:false,poll_seconds:10,unit:''};}
 function openRegister(idx){
   editRegister=idx;var d=$('deviceDialog')._working,r=idx<0?blankRegister():JSON.parse(JSON.stringify(d.registers[idx]));$('registerDialog')._working=r;$('registerTitle').textContent=idx<0?'Register hinzufügen':'Register bearbeiten';
-  $('rName').value=r.name;$('rType').value=r.type;$('rAddress').value=r.address;$('rDatatype').value=String(r.datatype).toUpperCase();$('rUnit').value=r.unit||'';$('rFactor').value=r.factor;$('rOffset').value=r.offset;$('rPoll').value=r.poll_seconds;$('rByteSwap').checked=r.byte_swap;$('rWordSwap').checked=r.word_swap;$('rDWordSwap').checked=!!r.dword_swap;$('rInvertInput').checked=!!r.invert_input;$('rEnabled').checked=r.enabled;
+  $('rName').value=r.name;$('rType').value=r.type;$('rCoilDirection').value=r.coil_direction||'output';$('rAddress').value=r.address;$('rDatatype').value=String(r.datatype).toUpperCase();$('rUnit').value=r.unit||'';$('rFactor').value=r.factor;$('rOffset').value=r.offset;$('rPoll').value=r.poll_seconds;$('rByteSwap').checked=r.byte_swap;$('rWordSwap').checked=r.word_swap;$('rDWordSwap').checked=!!r.dword_swap;$('rInvertInput').checked=!!r.invert_input;$('rEnabled').checked=r.enabled;
   $('registerResult').textContent='';$('deleteRegister').style.visibility=idx<0?'hidden':'visible';
   $('rSeries').checked=false;$('rSeries').disabled=idx>=0;$('rSeriesCount').value=2;syncSeries();syncDatatype();$('registerDialog').showModal();
 }
 function workingRegister(){
-  var r=$('registerDialog')._working;r.name=$('rName').value.trim();r.type=$('rType').value;r.address=Number($('rAddress').value);r.datatype=$('rDatatype').value.toLowerCase();r.unit=$('rUnit').value.trim();r.factor=parseNumber($('rFactor').value,1);r.offset=parseNumber($('rOffset').value,0);r.poll_seconds=Number($('rPoll').value);r.byte_swap=$('rByteSwap').checked;r.word_swap=$('rWordSwap').checked;r.dword_swap=$('rDWordSwap').checked;r.invert_input=$('rInvertInput').checked;r.enabled=$('rEnabled').checked;return r;
+  var r=$('registerDialog')._working;r.name=$('rName').value.trim();r.type=$('rType').value;r.coil_direction=r.type==='coil'?$('rCoilDirection').value:'';r.address=Number($('rAddress').value);r.datatype=$('rDatatype').value.toLowerCase();r.unit=$('rUnit').value.trim();r.factor=parseNumber($('rFactor').value,1);r.offset=parseNumber($('rOffset').value,0);r.poll_seconds=Number($('rPoll').value);r.byte_swap=$('rByteSwap').checked;r.word_swap=$('rWordSwap').checked;r.dword_swap=$('rDWordSwap').checked;r.invert_input=$('rInvertInput').checked;r.enabled=$('rEnabled').checked;return r;
 }
 function parseNumber(v,def){var n=Number(String(v).replace(',','.'));return isFinite(n)?n:def;}
 function numberedName(name,n){
@@ -113,11 +113,12 @@ function syncSeries(){
   var on=$('rSeries').checked;
   $('rSeriesCountWrap').style.display=on?'':'none';
 }
-function syncDatatype(){$('rInvertInputWrap').style.display=$('rType').value==='discrete'?'':'none';var t=$('rType').value;if(t==='coil'||t==='discrete'){$('rDatatype').value='BOOL';$('rDatatype').disabled=true;}else{$('rDatatype').disabled=false;if($('rDatatype').value==='BOOL')$('rDatatype').value='INT16';}}
+function syncDatatype(){$('rCoilDirectionWrap').style.display=$('rType').value==='coil'?'':'none';$('rInvertInputWrap').style.display=($('rType').value==='discrete'||($('rType').value==='coil'&&$('rCoilDirection').value==='input'))?'':'none';var t=$('rType').value;if(t==='coil'||t==='discrete'){$('rDatatype').value='BOOL';$('rDatatype').disabled=true;}else{$('rDatatype').disabled=false;if($('rDatatype').value==='BOOL')$('rDatatype').value='INT16';}}
 
 $('addDevice').onclick=function(){openDevice(-1);};
 $('addRegister').onclick=function(){openRegister(-1);};
 $('rType').onchange=syncDatatype;
+$('rCoilDirection').onchange=syncDatatype;
 $('rSeries').onchange=syncSeries;
 $('applyRegister').onclick=function(){
   var r=workingRegister();
