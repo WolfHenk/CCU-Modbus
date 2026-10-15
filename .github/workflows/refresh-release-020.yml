@@ -1,0 +1,28 @@
+name: Refresh v0.2.0 documentation package
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/CCU-Modbus_0.2.0_Testprotokoll_2026-10-15.md
+permissions:
+  contents: write
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+      - name: Verify and build final archive
+        run: |
+          test "$(cat VERSION)" = "0.2.0"
+          make package
+          sha256sum build/ccu-modbus-0.2.0.tar.gz > build/ccu-modbus-0.2.0.tar.gz.sha256
+          tar -tzf build/ccu-modbus-0.2.0.tar.gz | grep -F './docs/CCU-Modbus_0.2.0_Testprotokoll_2026-10-15.md'
+      - name: Replace release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload v0.2.0 build/ccu-modbus-0.2.0.tar.gz build/ccu-modbus-0.2.0.tar.gz.sha256 --clobber
+          gh release edit v0.2.0 --notes "CCU-Modbus 0.2.0: geprüfter Quellstand, korrigierte Modbus-Tests und Tablet-WebUI. Der nachträglich ergänzte vollständige Testbericht einschließlich erfolgreicher Installation des veröffentlichten 0.2.0-Pakets auf ARM64-OpenCCU ist im Installationsarchiv und unter https://github.com/WolfHenk/CCU-Modbus/blob/main/docs/CCU-Modbus_0.2.0_Testprotokoll_2026-10-15.md verfügbar. Tests auf originaler CCU3 und x86_64-OpenCCU wurden nicht durchgeführt."

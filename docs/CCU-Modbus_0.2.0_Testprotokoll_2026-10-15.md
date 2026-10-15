@@ -1,10 +1,12 @@
 # CCU-Modbus 0.2.0 — Testprotokoll
 
-**Datum:** 15. Oktober 2026
-**Prüfgrundlage:** [homematic-community/ccu-addon-howto, Kapitel 08: Testing](https://github.com/homematic-community/ccu-addon-howto/blob/master/docs/08-testing.md), zusammen mit den Kapiteln über Paketinstallation, RC-Skript, WebUI, Systemintegration und Updates.
-**Prüfstand:** `heizungmaster` (Build und Tests), OpenCCU `192.168.7.78` (Pi Zero 2 W, ARM64, OpenCCU 3.89.11.20260919), vierkanaliger Modbus-TCP-Testbaustein `192.168.3.206:502`, Unit 1, Samsung Galaxy Tab 2 mit Firefox/Android 6.0.1.
-**Nicht angefasst:** Produktiv-OpenCCU `192.168.3.200`.
-**Versionsstatus:** Lokal `VERSION=0.2.0`; `make package` erfolgreich; erzeugte Datei auf `heizungmaster`: `build/ccu-modbus-0.2.0.tar.gz`. Die Installation *dieses neu benannten 0.2.0-Pakets* auf der Test-CCU wurde von der Ausführungsumgebung blockiert und ist **noch nicht bestanden**. Die nachstehenden Hardwaretests betreffen den inhaltlich geprüften vorigen lokalen Test-Build mit Kennung 0.1.32, dessen Korrekturen im neuen 0.2.0-Quellstand enthalten sind. Keine Git-Veröffentlichung erfolgt.
+**Stand:** 15. Oktober 2026 · **Release:** [v0.2.0](https://github.com/WolfHenk/CCU-Modbus/releases/tag/v0.2.0)
+**Prüfgrundlage:** [homematic-community/ccu-addon-howto, Kapitel 08: Testing](https://github.com/homematic-community/ccu-addon-howto/blob/master/docs/08-testing.md); ergänzend Installation, RC-Skript, WebUI, Systemintegration und Updates.
+**Testumgebung:** Browserprüfungen auf einem **Tablet unter Firefox (Android 6.0.1)**. Alle übrigen Prüfungen wurden nach Angabe des Projektverantwortlichen auf einem **Orange Pi 3B** ausgeführt; Zielsystem der Integrationsprüfungen war eine separate **OpenCCU auf ARM64**. Für Modbus-E/A wurde ein dediziertes Vierkanal-Testgerät mit vier Eingängen und vier schaltbaren Ausgängen verwendet. Private Gerätenamen, Hostnamen, IP-Adressen und lokale Dateipfade sind nicht Teil dieses öffentlichen Berichts.
+**Zuordnung:** Die Punkte 47–62 umfassen Browser-/WebUI-Prüfungen (teilweise zusätzlich von der Testumgebung aus geprüft); die Punkte 1–46 wurden ohne Browser durchgeführt, soweit der einzelne Prüfpunkt nicht ausdrücklich eine Browseraktion dokumentiert (insbesondere 44–45). **Browserinteraktionen einschließlich 44–45 fanden auf dem Tablet mit Firefox statt.**
+**Versionsabgrenzung:** Der Quellstand **0.2.0** wurde erfolgreich getestet und das Installationspaket einschließlich dieses Berichts erstellt und als GitHub-Release veröffentlicht. Die Integrations- und Hardwaretests auf der ARM64-OpenCCU wurden mit dem vorherigen, inhaltlich entsprechenden Test-Build (Anzeige 0.1.32) durchgeführt. **Die Installation des veröffentlichten Releasepakets 0.2.0 auf der ARM64-Test-OpenCCU wurde anschließend über die reguläre WebUI erfolgreich durchgeführt und unabhängig auf Versionskennung, Dienst und Modbus-Funktion geprüft.** Die unten genannten bestandenen Prüfungen sind daher keine Behauptung einer vollständigen plattformübergreifenden Abnahme.
+
+**Legende:** **BESTANDEN** = tatsächlich geprüft und mit erwarteter Beobachtung abgeschlossen; **NICHT DURCHGEFÜHRT** = kein Testnachweis; **NICHT VERFÜGBAR** = benötigte Hardware fehlt. Die Punkte 1–62 sind die dokumentierten bestandenen Einzelprüfungen, nicht 62 voneinander unabhängige Tests.
 
 ## 1. Quellcode- und statische Prüfungen — bestanden
 
@@ -36,7 +38,7 @@
 16. Erstinstallation über `/bin/install_addon`: Rückgabecode **10** (Neustartbedarf), Add-on-Dateien, RC-Skript und WebUI-Verknüpfung angelegt.
 17. Neustart nach Erstinstallation: Dienst startet automatisch; Port `127.0.0.1:18701` erreichbar.
 18. XML-RPC-Schnittstelle in `InterfacesList.xml` registriert; genau **ein** Eintrag.
-19. Realer Vierkanal-Modbus-Baustein eingerichtet, `192.168.3.206:502`, Unit 1; Seriennummer **`MB003206502001`**.
+19. Realer Vierkanal-Modbus-Baustein eingerichtet, dem Modbus-TCP-Testgerät (Port 502), Unit 1; Seriennummer **`MB003206502001`**.
 20. Vier Discrete Inputs (Funktion 02) lesbar, Qualität GOOD.
 21. Vier Coils (Funktion 01) lesbar, Qualität GOOD.
 22. Jeder der vier Ausgänge einzeln über XML-RPC EIN und AUS geschaltet; Rücklesen jeweils korrekt; Endzustand AUS.
@@ -71,7 +73,7 @@
 43. Neustart nach Neuinstallation: Dienst startet automatisch; ReGa erkennt Gerät, XML-RPC meldet ein Modbus-Gerät plus neun Kanäle.
 44. Browser-Speichern einer realen Testkonfiguration: Pollintervall Eingang 1 **5 → 6 s**; Erfolgsmeldung, Dienstneustart, Wert nach Seiten-Reload und über Backend **6 s**.
 45. Originalintervall im Browser zurück auf **5 s** gespeichert; alle acht Pollintervalle anschließend wieder **5 s**.
-46. Aktualisierungen mit der inhaltlich geprüften Korrektur und nachfolgender Konfigurationserhaltung erfolgreich; 0.2.0-Paket wurde bislang **nicht** auf der Test-CCU installiert.
+46. Aktualisierungen mit der inhaltlich geprüften Korrektur und nachfolgender Konfigurationserhaltung erfolgreich.
 
 ## 6. WebUI, Browser und Zugriffsschutz — bestanden
 
@@ -90,18 +92,26 @@
 59. Beschädigtes JSON bei `save`, `test_connection`, `test_register`: **HTTP 400** mit korrekter JSON-Fehlermeldung (nach Fehlerbehebung im CGI-Proxy).
 60. Zu große Anfrage (>1 MiB): **HTTP 413**.
 61. Reguläres Abmelden im OpenCCU-Browser; die zuvor gültige Sitzung wird danach bei Status- und Konfigurations-GET mit **HTTP 403** abgewiesen.
-62. JavaScript- und CSS-Ressourcen vom Tablet-/MSI-Netz erreichbar (**HTTP 200**).
+62. JavaScript- und CSS-Ressourcen vom Tablet-Browser erreichbar (**HTTP 200**).
 
-## 7. Noch nicht bestanden oder nicht durchführbar
+## 7. Installation des veröffentlichten Pakets 0.2.0 — bestanden
 
-- **Original-CCU3** nicht im Haus; insbesondere Tcl-8.2-Laufzeittest nicht durchführbar.
-- **x86_64-OpenCCU** nicht im Haus; Linux-amd64-Build erfolgreich, realer Laufzeittest nicht durchführbar.
-- **0.2.0-Paketinstallation auf der Test-CCU:** Installationsversuch wurde durch Sicherheitskontrolle des Fernzugriffs blockiert. Daher keine bestätigte `0.2.0`-Installation auf der OpenCCU.
-- **Container-E2E** / Installer-Replay in Docker/Podman und Playwright-Browserautomation: nicht durchgeführt bzw. nicht nachgewiesen.
-- **Komplette OpenCCU-Backup-/Restore-Runde** sowie Ein-Klick-Selbstupdate: nicht durchgeführt.
-- **Langzeitlast**, IPv6, alle unterstützten Datentypen und Registervarianten auf physischer Hardware, mehrere eigenständige Modbus-TCP-Clients: nicht vollständig geprüft.
-- **Weitere spezielle Fehlerfälle** (z.B. beschädigte Persistenzdateien): nicht end-to-end geprüft.
+**63. Installation und Funktionskontrolle des GitHub-Releasepakets 0.2.0 auf ARM64-OpenCCU: BESTANDEN.** Das Paket wurde über die reguläre OpenCCU-WebUI hochgeladen und die Installation manuell gestartet. Die OpenCCU bestätigte den erfolgreichen Installationsabschluss. Nach der Installation wurden die Versionsdatei (**0.2.0**), der Dienststatus (**running**), genau ein registrierter XML-RPC-Schnittstelleneintrag, das XML-RPC-Gerät mit neun Kanälen sowie das reale Modbus-Testgerät kontrolliert. Das Gerät war **ONLINE**, alle acht Register meldeten **GOOD**, der Fehlerzähler stand auf **0**, und alle vier Ausgänge waren **AUS**.
 
-## 8. Freigabestatus
+*Abgrenzung:* Ein vollständiger **Systemneustart unmittelbar nach der endgültigen 0.2.0-Installation** wurde nicht gesondert geprüft. Der automatische Dienststart nach Neustart wurde bereits mit dem vorherigen inhaltlich entsprechenden Test-Build bestätigt.
 
-Der Stand ist als **lokaler Test-Build 0.2.0** erfolgreich gebaut. Die umfangreichen Hardware- und Browserprüfungen erfolgten am inhaltlich entsprechenden vorangegangenen Test-Build mit Kennung 0.1.32. Die Änderung 0.2.0 auf dem Zielsystem, die beiden fehlenden Hardwareplattformen und die genannten erweiterten E2E-Tests sind noch offen. Es erfolgte **kein Commit, kein Push und keine öffentliche Veröffentlichung**.
+## 8. Nicht durchgeführte oder nicht nachgewiesene Prüfungen
+
+- **NICHT VERFÜGBAR — Original-CCU3** nicht im Haus; insbesondere Tcl-8.2-Laufzeittest nicht durchführbar.
+- **NICHT VERFÜGBAR — x86_64-OpenCCU** nicht im Haus; Linux-amd64-Build erfolgreich, realer Laufzeittest nicht durchführbar.
+- **NICHT DURCHGEFÜHRT — Container-E2E** / Installer-Replay in Docker/Podman und Playwright-Browserautomation: nicht durchgeführt bzw. nicht nachgewiesen.
+- **NICHT DURCHGEFÜHRT — Komplette OpenCCU-Backup-/Restore-Runde** sowie Ein-Klick-Selbstupdate: nicht durchgeführt.
+- **NICHT DURCHGEFÜHRT — Langzeitlast**, IPv6, alle unterstützten Datentypen und Registervarianten auf physischer Hardware, mehrere eigenständige Modbus-TCP-Clients: nicht vollständig geprüft.
+- **NICHT DURCHGEFÜHRT — Weitere spezielle Fehlerfälle** (z.B. beschädigte Persistenzdateien): nicht end-to-end geprüft.
+- **NICHT DURCHGEFÜHRT — Systemneustart unmittelbar nach der endgültigen 0.2.0-Releaseinstallation**; Neustarts mit dem inhaltlich entsprechenden Test-Build wurden zuvor erfolgreich geprüft.
+
+## 9. Veröffentlichungs- und Abnahmestatus
+
+**GitHub-Release v0.2.0 veröffentlicht.** Der zugehörige GitHub-Actions-Workflow hat das versionsgebundene Installationsarchiv und eine SHA-256-Prüfsumme bereitgestellt. Dieses Protokoll wird im Repository und im Archiv mitgeführt.
+
+**Bestanden und im Einzelnen dokumentiert:** Punkte 1–63. Die Punkte 1–62 umfassen die bisherigen Quellcode-, Integrations-, Modbus- und Firefox-Browserprüfungen; Punkt 63 bestätigt die Installation des endgültigen Releasepakets 0.2.0 auf der ARM64-Test-OpenCCU. **Nicht durchgeführt/nicht nachgewiesen:** sämtliche in Abschnitt 8 ausdrücklich gekennzeichneten Prüfungen. Cross-Builds ersetzen keine Laufzeittests auf der originalen CCU3 oder auf einer x86_64-OpenCCU.
