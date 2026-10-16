@@ -4,9 +4,9 @@ CCU-Modbus ist eine Zusatzsoftware für CCU/OpenCCU, mit der Modbus-TCP-Geräte 
 
 Die Konfiguration erfolgt vollständig über die WebUI der CCU. Es ist keine Cloud, keine externe Datenbank und kein zusätzlicher Server erforderlich.
 
-## Aktuelle Version: 0.2.3
+## Aktuelle Version: 0.2.4
 
-[**Release 0.2.3 herunterladen**](https://github.com/WolfHenk/CCU-Modbus/releases/tag/v0.2.3) · [**Installationspaket 0.2.3 (TAR.GZ)**](https://github.com/WolfHenk/CCU-Modbus/releases/download/v0.2.3/ccu-modbus-0.2.3.tar.gz) · [**SHA-256-Prüfsumme**](https://github.com/WolfHenk/CCU-Modbus/releases/download/v0.2.3/ccu-modbus-0.2.3.tar.gz.sha256)
+[**Release 0.2.4 herunterladen**](https://github.com/WolfHenk/CCU-Modbus/releases/tag/v0.2.4) · [**Installationspaket 0.2.4 (TAR.GZ)**](https://github.com/WolfHenk/CCU-Modbus/releases/download/v0.2.4/ccu-modbus-0.2.4.tar.gz) · [**SHA-256-Prüfsumme**](https://github.com/WolfHenk/CCU-Modbus/releases/download/v0.2.4/ccu-modbus-0.2.4.tar.gz.sha256)
 
 **Neu in 0.2.1:** Ein-Klick-Selbstupdate in der CCU-Modbus-WebUI. Die Funktion fragt veröffentlichte GitHub-Releases ab, vergleicht die Version, lädt nach Bestätigung das Paket herunter, prüft die SHA-256-Summe und übergibt es an den OpenCCU-Installer. Ein eigenständiges Go-Programm übernimmt die Aktualisierung; Python wird auf der CCU nicht benötigt. Der Modbus-Betrieb bleibt ohne Internetverbindung nutzbar.
 
@@ -42,7 +42,7 @@ Ab Version **0.1.28** entfernt das Loeschen eines kompletten Modbus-Geraets in d
 
 ## Installation
 
-1. Das [veröffentlichte Installationspaket 0.2.3](https://github.com/WolfHenk/CCU-Modbus/releases/download/v0.2.3/ccu-modbus-0.2.3.tar.gz) herunterladen.
+1. Das [veröffentlichte Installationspaket 0.2.4](https://github.com/WolfHenk/CCU-Modbus/releases/download/v0.2.4/ccu-modbus-0.2.4.tar.gz) herunterladen.
 2. In der CCU unter **Einstellungen → Systemsteuerung → Zusatzsoftware** die TAR.GZ-Datei auswählen und installieren.
 3. Bei der ersten Installation ist ein Neustart der CCU erforderlich, damit die XML-RPC-Schnittstelle von ReGaHss übernommen wird.
 4. Anschließend unter **Einstellungen → Systemsteuerung → Zusatzsoftware → CCU-Modbus → Einstellen** die Konfiguration öffnen.

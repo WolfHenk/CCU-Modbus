@@ -11,6 +11,7 @@ test:
 	python3 packaging/test_lifecycle.py
 	python3 packaging/test_webui_security.py
 	node --check packaging/www/app.js
+	node packaging/test_inbox_navigation.js
 	! grep -Eq 'v=0\.1\.[0-9]+|class="version">0\.1\.[0-9]+' packaging/www/index.cgi
 
 build:

@@ -2,6 +2,7 @@
 'use strict';
 var sid=window.CCU_MODBUS_SID||'';
 var cfg=null, states=[], dirty=false, editDevice=-1, editRegister=-1, expanded={};
+var savedDeviceIds={};
 var $=function(id){return document.getElementById(id);};
 
 function api(action,method,body){
@@ -18,6 +19,49 @@ function api(action,method,body){
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function setDirty(v){dirty=v;$('dirtyText').textContent=v?'Ungespeicherte Änderungen.':'Keine ungespeicherten Änderungen.';}
 function notice(msg,err){var n=$('notice');n.textContent=msg;n.className='notice'+(err?' error':'');setTimeout(function(){n.className='notice hidden';},6000);}
+// Navigate to OpenCCU's native inbox, never modify OpenCCU's own files.
+function openInboxIn(w){
+  try{
+    if(!w || w.closed || !w.WebUI || !w.NewDeviceListPage || !w.ConfigData)return false;
+    w.ConfigData.check(function(){w.WebUI.enter(w.NewDeviceListPage);});
+    try{w.focus();}catch(e){}
+    return true;
+  }catch(e){return false;}
+}
+function showNativeInbox(standaloneTab){
+  if(openInboxIn(window.opener))return true;
+  if(window.parent!==window && openInboxIn(window.parent))return true;
+  if(window.top!==window && openInboxIn(window.top))return true;
+  if(openInboxIn(window))return true;
+  if(standaloneTab && !standaloneTab.closed){
+    var tries=0;
+    var timer=setInterval(function(){
+      tries++;
+      if(openInboxIn(standaloneTab)||tries>=30){
+        clearInterval(timer);
+        if(tries>=30)notice('Posteingang konnte nicht automatisch geöffnet werden.',true);
+      }
+    },500);
+    return true;
+  }
+  notice('Posteingang konnte nicht automatisch geöffnet werden (Browserfenster blockiert).',true);
+  return false;
+}
+function waitAndShowInbox(newIds,standaloneTab){
+  var tries=0;
+  function check(){
+    api('status').then(function(status){
+      var found=Array.isArray(status)&&status.some(function(d){return newIds.indexOf(d.id)>=0;});
+      if(found){setTimeout(function(){showNativeInbox(standaloneTab);},1200);return;}
+      retry();
+    }).catch(retry);
+  }
+  function retry(){
+    if(++tries<15)setTimeout(check,1000);
+    else notice('Neues Gerät nicht im Modbus-Dienst registriert; Posteingang nicht automatisch geöffnet.',true);
+  }
+  setTimeout(check,1100);
+}
 function stateFor(id){for(var i=0;i<states.length;i++)if(states[i].id===id)return states[i];return null;}
 function lamp(s){if(!s)return 'gray';if(s.state==='ONLINE')return 'green';if(s.state==='DEGRADED')return 'yellow';if(s.state==='OFFLINE'||s.state==='CONFIG_ERROR')return 'red';return 'gray';}
 function stateText(s,d){if(!d.enabled)return 'Deaktiviert';if(!s)return 'Noch kein Status';if(s.state==='ONLINE')return 'Verbunden';if(s.state==='DEGRADED')return 'Verbunden, einzelne Fehler';if(s.state==='OFFLINE')return 'Gerät nicht erreichbar';if(s.state==='CONFIG_ERROR')return 'Konfigurationsfehler';return s.state;}
@@ -148,7 +192,26 @@ $('applyDevice').onclick=function(){var d=workingDevice();if(!d.name||!d.host){n
 $('deleteDevice').onclick=function(){if(editDevice>=0&&confirm('Gerät und alle zugehörigen Register wirklich löschen?')){cfg.devices.splice(editDevice,1);$('deviceDialog').close();setDirty(true);render();}};
 $('testConnection').onclick=function(){var out=$('connectionResult'),d=workingDevice();out.className='';out.textContent='Prüfe…';api('test_connection','POST',d).then(function(){out.className='ok';out.textContent='✓ TCP-Verbindung erfolgreich';}).catch(function(e){out.className='bad';out.textContent='✗ '+e.message;});};
 $('testRegister').onclick=function(){var out=$('registerResult'),d=workingDevice(),r=workingRegister();out.className='';out.textContent='Lese…';api('test_register','POST',{device:d,register:r}).then(function(x){out.className='ok';out.textContent='✓ Rohwert: '+x.raw+' · Wert: '+x.value+(x.unit?' '+x.unit:'');}).catch(function(e){out.className='bad';out.textContent='✗ '+e.message;});};
-$('saveAll').onclick=function(){if(!dirty)return;this.disabled=true;var btn=this;api('save','POST',cfg).then(function(){setDirty(false);notice('Konfiguration gespeichert. Modbus-Dienst wird neu gestartet.');setTimeout(loadStatus,1800);}).catch(function(e){notice('Speichern fehlgeschlagen: '+e.message,true);}).finally(function(){btn.disabled=false;});};
+$('saveAll').onclick=function(){
+  if(!dirty)return;
+  var newIds=cfg.devices.filter(function(d){return d.enabled&&!savedDeviceIds[d.id];}).map(function(d){return d.id;});
+  // Browser popups may only be created within this direct click handler.
+  var parentUsable=false;
+  try{parentUsable=!!(window.opener&&window.opener.WebUI&&window.opener.NewDeviceListPage);}catch(e){}
+  try{parentUsable=parentUsable||!!(window.top.WebUI&&window.top.NewDeviceListPage);}catch(e){}
+  var inboxTab=newIds.length&&!parentUsable?window.open('/','_blank'):null;
+  this.disabled=true;var btn=this;
+  api('save','POST',cfg).then(function(){
+    cfg.devices.forEach(function(d){savedDeviceIds[d.id]=true;});
+    setDirty(false);
+    notice('Konfiguration gespeichert. Modbus-Dienst wird neu gestartet.');
+    setTimeout(loadStatus,1800);
+    if(newIds.length)waitAndShowInbox(newIds,inboxTab);
+  }).catch(function(e){
+    if(inboxTab&&!inboxTab.closed)inboxTab.close();
+    notice('Speichern fehlgeschlagen: '+e.message,true);
+  }).finally(function(){btn.disabled=false;});
+};
 
 var updateAvailable=false, updateBusy=false;
 function updateMessage(t){$('updateMessage').textContent=t;}
@@ -191,6 +254,6 @@ function pollUpdate(){
 }
 
 function loadStatus(){api('status').then(function(x){states=Array.isArray(x)?x:[];render();}).catch(function(){states=[];render();});}
-function init(){Promise.all([api('config'),api('status').catch(function(){return [];})]).then(function(x){cfg=x[0];states=Array.isArray(x[1])?x[1]:[];setDirty(false);render();setInterval(loadStatus,5000);}).catch(function(e){notice('CCU-Modbus konnte nicht geladen werden: '+e.message,true);});}
+function init(){Promise.all([api('config'),api('status').catch(function(){return [];})]).then(function(x){cfg=x[0];states=Array.isArray(x[1])?x[1]:[];cfg.devices.forEach(function(d){savedDeviceIds[d.id]=true;});setDirty(false);render();setInterval(loadStatus,5000);}).catch(function(e){notice('CCU-Modbus konnte nicht geladen werden: '+e.message,true);});}
 init();
 })();
