@@ -68,8 +68,8 @@ if [ ! -f "$CONF/config.json" ]; then
   cp -f examples/config.json "$CONF/config.json"
 fi
 
-# Register the device interface once. ReGaHss reads InterfacesList.xml at
-# startup, therefore the first installation of this interface requires a reboot.
+# Register the interface once. First installs activate ReGa after the
+# OpenCCU addon installer exits; upgrades must not restart ReGa.
 if [ -f "$INTERFACES" ] && ! grep -q "<name>CCU-Modbus</name>" "$INTERFACES"; then
   TMP="$INTERFACES.ccu-modbus.$"
   awk '
@@ -96,18 +96,31 @@ touch "$CONF/addon_updates_refresh.pending"
 
 sync
 
-if [ $NEW_INTERFACE -eq 1 ]; then
-  sync
-  exit 10
+# Start daemon on first installation and upgrade, without forced reboot.
+if [ ! -f /etc/init.d/S00InstallAddon ]; then
+  cd /
+  "$RCD/$ADDON" start || exit 14
 fi
 
-if [ $EXITCODE -eq 0 ] && [ ! -f /etc/init.d/S00InstallAddon ]; then
-  cd /
-  "$RCD/$ADDON" start
+# One-time ReGa activation on first installation only.  Do not restart
+# ReGa from inside install_addon: allow OpenCCU to finish the installation.
+if [ "$NEW_INTERFACE" -eq 1 ] && [ ! -f /etc/init.d/S00InstallAddon ]; then
+  installer_pid="$PPID"
+  (
+    n=0
+    while kill -0 "$installer_pid" 2>/dev/null && [ "$n" -lt 90 ]; do
+      sleep 1
+      n=$((n+1))
+    done
+    sleep 3
+    if [ -f "$INTERFACES" ] && grep -q '<name>CCU-Modbus</name>' "$INTERFACES"; then
+      /etc/init.d/S70ReGaHss restart >/usr/local/tmp/ccu-modbus-rega-activation.log 2>&1
+    fi
+  ) </dev/null >/dev/null 2>&1 &
 fi
 
 # Asynchronous: do not block OpenCCU's installer on network update checks.
 # If interrupted, rc.d init will retry after the next reboot.
 "$RCD/$ADDON" refresh-addon-versions
 
-exit $EXITCODE
+exit 0

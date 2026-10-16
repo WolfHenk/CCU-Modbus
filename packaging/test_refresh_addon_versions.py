@@ -53,8 +53,8 @@ def main():
     # Check critical install ordering: successful registration -> pending marker,
     # first-install reboot decision -> live-update trigger.
     assert INSTALL.index('"$BASE/bin/update_addon" ccu-modbus') < INSTALL.index('touch "$CONF/addon_updates_refresh.pending"')
-    assert INSTALL.index('touch "$CONF/addon_updates_refresh.pending"') < INSTALL.index('if [ $NEW_INTERFACE -eq 1 ]; then')
-    assert INSTALL.index('if [ $NEW_INTERFACE -eq 1 ]; then') < INSTALL.index('"$RCD/$ADDON" refresh-addon-versions')
+    assert INSTALL.index('touch "$CONF/addon_updates_refresh.pending"') < INSTALL.index('if [ "$NEW_INTERFACE" -eq 1 ]')
+    assert INSTALL.index('if [ "$NEW_INTERFACE" -eq 1 ]') < INSTALL.index('"$RCD/$ADDON" refresh-addon-versions')
     assert '"$BASE/bin/update_addon" ccu-modbus' in INSTALL and '|| exit 14' in INSTALL
     assert 'refresh_addon_versions' in RCD[RCD.index('  init)'):RCD.index('  stop)')]
     for script in ('packaging/update_script', 'packaging/rc.d/ccu-modbus'):

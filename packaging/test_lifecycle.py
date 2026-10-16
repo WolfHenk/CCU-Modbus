@@ -10,7 +10,8 @@ assert 'start_daemon' not in init
 assert 'start_daemon' in start
 assert i.index('ARCH="$(uname -m)"') < i.index('"$RCD/$ADDON" stop')
 assert i.index('[ -f "$SRC" ]') < i.index('"$RCD/$ADDON" stop')
-assert 'if [ $EXITCODE -eq 0 ] && [ ! -f /etc/init.d/S00InstallAddon ]; then' in i
+assert 'if [ ! -f /etc/init.d/S00InstallAddon ]; then' in i
+assert i.index('\"$RCD/$ADDON\" start') < i.index('if [ "$NEW_INTERFACE" -eq 1 ]')
 u=Path('packaging/www/update-check.cgi').read_text()
 assert '/releases/latest' in u and 'releases/download/' in u
 assert '/commits/main' not in u
